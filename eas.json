@@ -13,6 +13,6 @@
     "production": {}
   },
   "submit": {
-    "production": {}
+    "development": {}
   }
 }

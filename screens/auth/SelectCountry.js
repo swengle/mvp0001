@@ -10,8 +10,9 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import IconTextInput from "../../components/IconTextInput";
 import Header from "../../components/Header";
 import { useKeyboard } from '@react-native-community/hooks';
-import Flag from "../../components/Flag";
 import { Divider, Text } from 'react-native-paper';
+
+const offset = 127397;
 
 const CountryRow = function({cca2, navigation}) {
   const auth_state = useSnapshot($.auth, {sync: true});
@@ -21,12 +22,15 @@ const CountryRow = function({cca2, navigation}) {
     $.auth.cca2 = country.cca2;
     navigation.goBack();
   };
+  
+  const cc = cca2.toUpperCase();
+  const flag_character = /^[A-Z]{2}$/.test(cc) ? String.fromCodePoint(...[...cc].map(c => c.charCodeAt() + offset)) : null;
 
   return (
     <View>
-      <TouchableOpacity onPress={on_press_flag} style={{padding: 10, paddingTop: 12, paddingBottom: 12}}>
+      <TouchableOpacity onPress={on_press_flag} style={{padding: 10, paddingTop: 4, paddingBottom: 4}}>
         <View style={{flex: 1, flexDirection: "row", alignItems: "center"}}>
-          <Flag countryCode={cca2} style={{fontFamily: "TwemojiMozilla", marginRight: 4}}/>
+          <Text style={{fontFamily: "TwemojiMozilla", fontSize: 40, marginRight: 4}}>{flag_character}</Text>
           <Text style={{fontWeight: "bold", fontSize: 15, marginRight: 4}}>{country.name}</Text>
           <Text style={{color: "#999", fontWeight: "bold", fontSize: 12}}>({country.calling_code})</Text>
           {auth_state.cca2 === country.cca2 && (

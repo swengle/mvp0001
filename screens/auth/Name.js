@@ -61,7 +61,7 @@ function ScreenName({ navigation }) {
     try {
       setIsBusy(true);
       const user = (await $.axios_api.post("/users/me", {username: username, name: name})).data;
-      console.log(user);
+      $.cache.set_user(user); // this should update the username and load the main stack
     } catch (e) {
       $.display_error(toast, e);
     } finally {

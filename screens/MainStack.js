@@ -11,7 +11,16 @@ import NameScreen from "./auth/Name";
 import HomeScreen from "./home/Home";
 import AlertsScreen from "./alerts/AlertsScreen";
 import UserScreen from "./user/UserScreen";
+import UserListScreen from "./user/UserListScreen";
+
+import SettingsScreen from "./settings/SettingsScreen";
+import ProfileScreen from "./settings/ProfileScreen";
+import NotificationsScreen from "./settings/NotificationsScreen";
+
+import ContactsScreen from "./contacts/ContactsScreen";
+
 import EditorStack from "./EditorStack";
+
 
 import { useSnapshot} from "valtio";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -38,18 +47,43 @@ const AlertsStack = function() {
   );
 };
 
+
+const SettingsStackNavigator =  createNativeStackNavigator();
+const SettingsStack = function() {
+  return (
+    <SettingsStackNavigator.Navigator>
+      <SettingsStackNavigator.Screen name="SettingsScreen" component={SettingsScreen} options={{headerShown: false}}/>
+      <SettingsStackNavigator.Screen name="ProfileScreen" component={ProfileScreen} options={{headerShown: false}}/>
+      <SettingsStackNavigator.Screen name="NotificationsScreen" component={NotificationsScreen} options={{headerShown: false}}/>
+    </SettingsStackNavigator.Navigator>
+  );
+};
+
+const ContactsStackNavigator =  createNativeStackNavigator();
+const ContactsStack = function() {
+  return (
+    <ContactsStackNavigator.Navigator>
+      <ContactsStackNavigator.Screen name="ContactsScreen" component={ContactsScreen} options={{headerShown: false}}/>
+    </ContactsStackNavigator.Navigator>
+  );
+};
+
+
 const UserStackNavigator = createNativeStackNavigator();
 const UserStack = function() {
   return (
     <UserStackNavigator.Navigator>
       <UserStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
+      <UserStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
+      <UserStackNavigator.Screen name="SettingsStack" component={SettingsStack} options={{headerShown: false}}/>
+      <UserStackNavigator.Screen name="ContactsStack" component={ContactsStack} options={{headerShown: false}}/>
     </UserStackNavigator.Navigator>
   );
 };
 
 const TabNavigator = createMaterialBottomTabNavigator();
 const StackTabs = function({ navigation }) {
-  const { colors } = useTheme();
+  const { colors, dark } = useTheme();
   const [permissionCamera, requestPermissionCamera] = Camera.useCameraPermissions();
   
   return (
@@ -61,50 +95,54 @@ const StackTabs = function({ navigation }) {
         <MaterialCommunityIcons name={focused ? "magnify" : "magnify"} color={focused ? colors.primary : colors.surfaceDisabled} size={26} />
       )}}/>
       <TabNavigator.Screen name="NewPostStack" component={HomeStack} options={{headerShown: false, tabBarLabel: "", tabBarIcon: ({ focused, color }) => (
-        <Image source={require("../assets/icons8-puzzled-100.png")} style={{width: 56, height: 56}}/>
+        dark ?  <Image source={require("../assets/dark-puzzled-500.png")} style={{width: 56, height: 56}}/> : <Image source={require("../assets/light-puzzled-500.png")} style={{width: 56, height: 56}}/>
       )}} 
       listeners={{
         tabPress: e => {
           e.preventDefault();
           if (!permissionCamera) {
-            $.dialog.is_camera_permission_visible = true;
+            requestPermissionCamera();
             return;
           } else if (!permissionCamera.granted) {
             if (permissionCamera.canAskAgain) {
-              $.dialog.is_camera_permission_visible = true;
-            } else {
               requestPermissionCamera();
+            } else {
+              $.dialog.is_camera_permission_visible = true;
             }
             return;
           }
+          $.reset_editor(); 
           navigation.push("EditorStack");
         },
       }}
+      //const { status } = await Contacts.requestPermissionsAsync();
       />
       <TabNavigator.Screen name="AlertsStack" component={AlertsStack} options={{headerShown: false, tabBarLabel: "Alerts", tabBarIcon: ({ focused, color }) => (
         <MaterialCommunityIcons name={focused ? "bell" : "bell-outline"} color={focused ? colors.primary : colors.surfaceDisabled} size={26} />
       )}}/>
       <TabNavigator.Screen name="UserStack" component={UserStack} options={{headerShown: false, tabBarLabel: "Profile", tabBarIcon: ({ focused, color }) => (
         <MaterialCommunityIcons name={focused ? "account" : "account-outline"} color={focused ? colors.primary : colors.surfaceDisabled} size={26} />
-      )}}/>
+      )}}
+      />
     </TabNavigator.Navigator>
   );
 };
 
 const MainStack = function() {
   const session = useSnapshot($.session);
+  const snap_current_user = $.get_snap_current_user();
   
   return (
     <Stack.Navigator screenOptions={{headerShown: false, ...TransitionPresets.ModalPresentationIOS}}>
-      {!session.user.username && (
+      {!snap_current_user.username && (
         <Stack.Group>
           <Stack.Screen name="NameScreen" component={NameScreen}/>
         </Stack.Group>
       )}
-      {session.user.username && (
+      {snap_current_user.username && (
         <Stack.Group>
           <Stack.Screen name="StackTabs" component={StackTabs}/>
-          <Stack.Screen name="EditorStack" component={EditorStack}/>
+          <Stack.Screen name="EditorStack" component={EditorStack} options={{gestureEnabled: false}}/>
         </Stack.Group>
       )}
     </Stack.Navigator>

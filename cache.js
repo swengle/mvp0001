@@ -1,19 +1,32 @@
-import { proxy } from 'valtio';
+import _ from "underscore";
+import { proxy, useSnapshot } from 'valtio';
 
 class Cache {
   constructor() {
     this.data = proxy({});
-    /*
-    const me = this;
-    setInterval(function() {
-      console.log(me.data);
-    }, 5000);
-    */
   }
   
   set_user(user) {
-    this.data[user.id] = user;
-    console.log(user);
+    if (this.data[user.id]) {
+      _.extend(this.data[user.id], user); 
+    } else {
+      this.data[user.id] = proxy(user);
+    }
+  }
+  
+  set_post(post) {
+    if (this.data[post.id]) {
+      _.extend(this.data[post.id], post); 
+    } else {
+      this.data[post.id] = proxy(post);
+    }
+  }
+  
+  get_snap(id) {
+    if (!id) {
+      return useSnapshot(this.data);
+    }
+    return useSnapshot(this.data[id]);
   }
   
   get(id) {

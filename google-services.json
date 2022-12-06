@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "481897851103",
+    "project_id": "mvp0001-753a9",
+    "storage_bucket": "mvp0001-753a9.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:481897851103:android:a7e0455a67aa976165a16a",
+        "android_client_info": {
+          "package_name": "com.swengle.mvp0001"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "481897851103-ccgg3r18rv5ggokcln7cgjr4ov9vvpbr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDOZTViHmYhZ5zNG5TEJNxjBoALlT3wqzo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "481897851103-ccgg3r18rv5ggokcln7cgjr4ov9vvpbr.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "481897851103-1ja2rtjshoio3papf2pvft13stqqlr4n.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.swengle.mvp0001"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

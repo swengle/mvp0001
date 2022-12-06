@@ -3,17 +3,18 @@
 import $ from "../../setup.js";
 $.env = "alpha";
 import { useEffect,useRef, useState } from "react";
-import { Platform, KeyboardAvoidingView, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, KeyboardAvoidingView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSnapshot } from 'valtio';
 import { subscribeKey } from 'valtio/utils';
 import { PhoneNumberType, PhoneNumberUtil } from 'google-libphonenumber';
-import Flag from "../../components/Flag";
 import { Button, Text, TextInput } from 'react-native-paper';
 import { useToast } from "react-native-toast-notifications";
 
 const phone_util = PhoneNumberUtil.getInstance();
+
+const offset = 127397;
 
 const on_press_privacy_policy = async function() {
   let env = '';
@@ -76,25 +77,23 @@ function ScreenSignin({ navigation }) {
   const [isBusy, setIsBusy] = useState(false);
   const auth_state = useSnapshot($.auth);
   const ref_input = useRef();
-  let unsubscribe, unsubscribe2;
-  
+
   useEffect(() => {
-    unsubscribe = subscribeKey($.auth, "cca2", (v) =>
+    const unsubscribe = subscribeKey($.auth, "cca2", (v) =>
       check_if_phone_is_valid()
     );
-    unsubscribe2 = navigation.addListener('focus', () => {
+    const unsubscribe2 = navigation.addListener('focus', () => {
       check_if_phone_is_valid();
       ref_input.current.focus();
     });
-  }, []);
-  
-  useEffect(() => {
-    return () => {
-      unsubscribe && unsubscribe();
-      unsubscribe2 && unsubscribe2();
+    
+    return function() {
+      unsubscribe();
+      unsubscribe2();
     };
+    
   }, []);
-  
+
   const on_press_flag = function() {
     navigation.push("SelectCountryScreen");
   };
@@ -114,6 +113,9 @@ function ScreenSignin({ navigation }) {
     }
   };
   
+  const cc = auth_state.cca2.toUpperCase();
+  const flag_character = /^[A-Z]{2}$/.test(cc) ? String.fromCodePoint(...[...cc].map(c => c.charCodeAt() + offset)) : null;
+  
   return (
       <SafeAreaView style ={{flex: 1}} edges={['top', 'right', 'left']}>
         <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
@@ -121,12 +123,10 @@ function ScreenSignin({ navigation }) {
             <View style={{alignItems: "center"}}>
                 <Text style={{fontSize: 20, marginTop: 10, marginBottom: 10, fontWeight: "bold"}}>Enter your phone number to continue</Text>
                 <View style={{flexDirection: "row", alignItems: "center"}}>
-                  <Button mode="outlined" onPress={on_press_flag} style={{marginRight: 4}}>
-                      <Text style={{fontWeight: "bold"}}>
-                        <Flag style={{fontFamily: "TwemojiMozilla"}} countryCode={auth_state.cca2}/>
-                        {$.data.countries_by_cca2[auth_state.cca2].calling_code}
-                      </Text>
-                  </Button>
+                  <TouchableOpacity mode="outlined" onPress={on_press_flag} style={{marginRight: 4, flexDirection: "row", alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 4, borderRadius: 10}}>
+                    <Text style={{fontFamily: "TwemojiMozilla", fontSize: 48}}>{flag_character}</Text>
+                    <Text style={{fontWeight: "bold", fontSize: 20}}> {$.data.countries_by_cca2[auth_state.cca2].calling_code}</Text>
+                  </TouchableOpacity>
                   <TextInput
                     label={<Text style={{color: "gray", fontSize: 16}}>Phone</Text>}
                     ref={ref_input}
