@@ -2,8 +2,7 @@
 import React, { useEffect, useRef, useState}  from "react";
 import _ from "underscore";
 import { FlatList, Keyboard, KeyboardAvoidingView, Platform, StyleSheet, TouchableOpacity, View} from 'react-native';
-import { IconButton, Surface, Text } from 'react-native-paper';
-import IconTextInput from "./IconTextInput";
+import { IconButton, Searchbar, Surface, Text } from 'react-native-paper';
 
 const DATA = require("./emoji.json");
 
@@ -90,6 +89,7 @@ const EmojiSelector = function({style, onLoaded, onSelect}) {
   const refFlatList = useRef();
   const [searchText, setSearchText] = useState("");
   const [emojis, setEmojis] = useState({enabled: {}, data: []});
+  const [search_text, set_search_text] = useState("");
   
   const prepData = function(data_to_prep) {
     let now = Date.now();
@@ -145,6 +145,7 @@ const EmojiSelector = function({style, onLoaded, onSelect}) {
   };
 
   const on_change_text = function(text) {
+    set_search_text(text);
     const val = text.trim().toLowerCase();
     setSearchText(val);
   };
@@ -177,7 +178,7 @@ const EmojiSelector = function({style, onLoaded, onSelect}) {
   
   return (
     <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
-      <IconTextInput icon="search" placeholder="Search" is_auto_focus={false} style={{borderBottomWidth: StyleSheet.hairlineWidth, borderTopWidth: StyleSheet.hairlineWidth}} on_change_text={on_change_text}/>
+      <Searchbar placeholder="Search" onChangeText={on_change_text} value={search_text} autoCapitalize={false} autoCorrect={false} autoComplete="none"/>
       <View style={{flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth}} keyboardShouldPersistTaps="always">
         <EmojiTypeButton category={CATEGORIES.smileys} onPress={on_press_emoji_type} isDisabled={!emojis.enabled[CATEGORIES.smileys.name]}/>
         <EmojiTypeButton category={CATEGORIES.people} onPress={on_press_emoji_type} isDisabled={!emojis.enabled[CATEGORIES.people.name]}/>

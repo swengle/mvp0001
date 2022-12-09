@@ -16,16 +16,37 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import Constants from 'expo-constants';
 import * as IntentLauncher from 'expo-intent-launcher';
-import Uploader from "./components/Uploader";
 import messaging from '@react-native-firebase/messaging';
+import * as timeago from 'timeago.js';
 
 $.logger = logger.createLogger();
 
 $.logger.info($.build_version);
 
-$.data = {};
-$.data.countries = require("./data/countries.json");
+const locale = function(number, index, totalSec) {
+  // number: the time ago / time in number;
+  // index: the index of array below;
+  // totalSec: total seconds between date to be formatted and today's date;
+  return [
+    ['just now', 'right now'],
+    ['%ss ago', 'in %ss'],
+    ['1m ago', 'in 1m'],
+    ['%sm ago', 'in %sm'],
+    ['1h ago', 'in 1h'],
+    ['%sh ago', 'in %sh'],
+    ['1d ago', 'in 1d'],
+    ['%sd ago', 'in %sd'],
+    ['1w ago', 'in 1w'],
+    ['%sw ago', 'in %sw'],
+    ['1mo ago', 'in 1mo'],
+    ['%smo ago', 'in %smo'],
+    ['1yr ago', 'in 1yr'],
+    ['%syr ago', 'in %syr'],
+  ][index];
+};
+timeago.register('en_US', locale);
 
+$.timeago = timeago;
 
 const pkg = (Constants.manifest && Constants.manifest.releaseChannel) ? Constants.manifest.android.package : 'host.exp.exponent';
 
@@ -40,18 +61,11 @@ $.openAppSettings = () => {
   }
 };
 
-
-$.data.countries_by_cca2 = {};
-_.each($.data.countries, function(country, idx) {
-  $.data.countries_by_cca2[country.cca2] = country;
-});
-
 $.axios = axios;
 
 $.axios_api = axios.create({
   baseURL: $.config.app.api_url
 });
-
 
 $.axios_api.interceptors.request.use(
   async function(config) {
@@ -97,9 +111,7 @@ $.auth = proxy({
   cca2: "US"
 });
 $.app = proxy({});
-$.editor = proxy({
-  uploader: new Uploader()
-});
+$.editor = proxy({});
 $.cache = new Cache();
 
 $.get_snap_current_user = function() {
@@ -118,11 +130,7 @@ $.get_current_user = function() {
 
 $.reset_editor = function() {
   _.each(_.keys($.editor), function(key) {
-    if (key === "uploader") {
-      $.editor.uploader.reset();
-    } else {
-      delete $.editor[key]; 
-    }
+    delete $.editor[key]; 
   });
 };
 
@@ -192,7 +200,6 @@ $.list_fetcher = {
       },
       refresh: async function(params) {
         params = params || {};
-        const start = Date.now();
         if (params.is_clear_data) {
           _.extend(base.state, { is_refreshing: true, refresh_error: undefined, data: undefined, is_at_end: false });
         }
@@ -203,7 +210,7 @@ $.list_fetcher = {
           delete base.method_params.cursor;
           try {
             const result = await $.axios_api.get(base.url, { params: base.method_params, timeout: params.timeout || 8000 });
-            let data = result.data;
+            let data = result.data.data;
             if (base.normalizer) {
               data = base.prepend.concat(base.normalizer(data));
             }
@@ -213,24 +220,11 @@ $.list_fetcher = {
             if (result.meta && result.meta.next_cursor) {
               base.next_cursor = result.meta.next_cursor;
             }
-            if (params.min_time) { // in tab view fast initial refresh can cause problems
-              const delta = Date.now() - start;
-              if (delta < params.min_time) {
-                _.delay(function() {
-                  _.extend(base.state, { is_refreshing: false, last_refresh_time: Date.now(), data: data });
-                }, params.min_time - delta);
-                return;
-              }
-            }
             _.extend(base.state, { is_refreshing: false, last_refresh_time: Date.now(), data: data });
           }
           catch (e) {
             _.extend(base.state, { is_refreshing: false, refresh_error: e});
-            if (params.auto_display_error) {
-              $.handle_common_errors(e);
-            } else {
-              throw e; 
-            }
+            throw e;
           }
         }
       },
@@ -244,7 +238,7 @@ $.list_fetcher = {
           base.method_params.cursor = base.next_cursor;
           try {
             const result = await $.axios_api.get(base.url, { params: base.method_params, timeout: params.timeout || 8000 });
-            let data = result.data;
+            let data = result.data.data;
             const new_length = _.size(data) + _.size(base.state.data);
             let is_max_length = false;
             if (base.max_length) {
@@ -272,11 +266,7 @@ $.list_fetcher = {
           }
           catch (e) {
             _.extend(base.state, { is_loading_more: false, load_more_error: e });
-            if (params.auto_display_error) {
-              $.handle_common_errors(e);
-            } else {
-              throw e; 
-            }
+            throw e;
           }
 
         }

@@ -10,7 +10,7 @@ class Cache {
     if (this.data[user.id]) {
       _.extend(this.data[user.id], user); 
     } else {
-      this.data[user.id] = proxy(user);
+      this.data[user.id] = user;
     }
   }
   
@@ -18,7 +18,7 @@ class Cache {
     if (this.data[post.id]) {
       _.extend(this.data[post.id], post); 
     } else {
-      this.data[post.id] = proxy(post);
+      this.data[post.id] = post;
     }
   }
   

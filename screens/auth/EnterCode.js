@@ -40,9 +40,12 @@ const EnterCode = function({route, navigation}) {
     try {
       setIsBusy(true);
       const data = (await $.axios_api.post("/auth_codes/validate", {device_id: $.app.device_id, phone: phone, auth_code: value})).data;
+      if (!data.is_success) {
+        $.display_error(toast, new Error("Invalid code. " + data.attempts_left + " attempt" + (data.attempts_left === 1 ? "" : "s") + " left."));
+      }
       await signInWithCustomToken(auth, data.token);
     } catch (e) {
-      $.display_error(toast, e);
+      $.display_error(toast, new Error("Unable to validate code."));
       if (e.status === 404) {
         navigation.goBack();
       }

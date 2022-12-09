@@ -7,16 +7,16 @@ import { Platform, FlatList, StyleSheet, View } from "react-native";
 import { TouchableOpacity } from "react-native-gesture-handler";
 import { useSnapshot } from 'valtio';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import IconTextInput from "../../components/IconTextInput";
 import Header from "../../components/Header";
 import { useKeyboard } from '@react-native-community/hooks';
-import { Divider, Text } from 'react-native-paper';
+import { Divider, Searchbar, Text, useTheme } from 'react-native-paper';
 
 const offset = 127397;
 
 const CountryRow = function({cca2, navigation}) {
+  const { colors } = useTheme();
   const auth_state = useSnapshot($.auth, {sync: true});
-  const country = $.data.countries_by_cca2[cca2];
+  const country = $.countries_by_cca2[cca2];
   
   const on_press_flag = function() {
     $.auth.cca2 = country.cca2;
@@ -30,9 +30,9 @@ const CountryRow = function({cca2, navigation}) {
     <View>
       <TouchableOpacity onPress={on_press_flag} style={{padding: 10, paddingTop: 4, paddingBottom: 4}}>
         <View style={{flex: 1, flexDirection: "row", alignItems: "center"}}>
-          <Text style={{fontFamily: "TwemojiMozilla", fontSize: 40, marginRight: 4}}>{flag_character}</Text>
-          <Text style={{fontWeight: "bold", fontSize: 15, marginRight: 4}}>{country.name}</Text>
-          <Text style={{color: "#999", fontWeight: "bold", fontSize: 12}}>({country.calling_code})</Text>
+          <Text style={{fontFamily: "TwemojiMozilla", fontSize: 40, marginRight: 8}}>{flag_character}</Text>
+          <Text variant="titleMedium" style={{marginRight: 4}}>{country.name}</Text>
+          <Text variant="bodySmall" style={{color: colors.outline}}>({country.calling_code})</Text>
           {auth_state.cca2 === country.cca2 && (
             <View style={{flex: 1}}>
               <MaterialCommunityIcons name="check-circle" size={20} style={{alignSelf: "flex-end", color: "gray"}}/>
@@ -46,8 +46,8 @@ const CountryRow = function({cca2, navigation}) {
 };
 
 const ScreenSelectCountry = function({ navigation }) {
-  const [countries, setCountries] = useState($.data.countries);
-
+  const [countries, setCountries] = useState($.countries);
+  const [search_text, set_search_text] = useState("");
   
   const render_country = function(row) {
     return (
@@ -60,10 +60,11 @@ const ScreenSelectCountry = function({ navigation }) {
   };
   
   const on_change_text = function(text) {
+    set_search_text(text);
     if (text.trim().length === 0) {
-      setCountries($.data.countries);
+      setCountries($.countries);
     } else {
-      setCountries(_.filter($.data.countries, function(country) { 
+      setCountries(_.filter($.countries, function(country) { 
         return (country.name.toLowerCase().indexOf(text.trim().toLowerCase()) === 0);
       }));
     }
@@ -73,16 +74,14 @@ const ScreenSelectCountry = function({ navigation }) {
   return (
     <SafeAreaView style ={{flex: 1}} edges={['right', 'left']}>
       <Header title="Select Country" on_press_back={on_press_back} is_modal={true}/>
-      <IconTextInput icon="search" placeholder="Search" is_auto_focus={true} on_change_text={on_change_text} style={{borderBottomWidth: StyleSheet.hairlineWidth, borderTopWidth: StyleSheet.hairlineWidth}}/>
-      <View behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
-        <FlatList
-          keyboardShouldPersistTaps="always"
-          style={[{marginBottom: keyboardHeight.coordinates.end.height}, styles.flat_list]}
-          data={countries}
-          renderItem={render_country}
-          keyExtractor = { item => item.cca2 }
-        />
-      </View>
+      <Searchbar placeholder="Search" onChangeText={on_change_text} value={search_text} autoCapitalize={false} autoCorrect={false} autoComplete="none" autoFocus={true}/>
+      <FlatList
+        keyboardShouldPersistTaps="always"
+        style={[{marginBottom: keyboardHeight.coordinates.end.height}, styles.flat_list]}
+        data={countries}
+        renderItem={render_country}
+        keyExtractor = { item => item.cca2 }
+      />
     </SafeAreaView>
   );
 };

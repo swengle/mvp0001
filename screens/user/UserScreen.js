@@ -7,6 +7,8 @@ import Header from "../../components/Header";
 import { useSnapshot } from "valtio";
 import * as Contacts from 'expo-contacts';
 
+import SwengleImage from "../../components/SwengleImage";
+
 const _1080 = "1080";
 
 const HeaderRight = function({navigation, is_current_user}) {
@@ -71,12 +73,12 @@ const User = function({navigation, user_id}) {
             <Avatar.Image size={80} source={{uri: snap_user.profile_image_url}} />
             <View style={{flex: 1, flexDirection: "column"}}>
               <View style={{flexDirection: "row", justifyContent: "center"}}>
-                <Chip mode="outlined" onPress={on_press_followers}>22 Followers</Chip>
+                <Chip mode="outlined" onPress={on_press_followers}>{snap_user.follow_by_count} Followers</Chip>
                 <View style={{marginLeft: 8}}>
-                  <Chip mode="outlined" onPress={on_press_following}>11 Following</Chip>
+                  <Chip mode="outlined" onPress={on_press_following}>{snap_user.follow_count} Following</Chip>
                 </View>
               </View>
-              <Button mode="contained" style={{marginTop: 20}} onPress={on_press_follow}>Follow</Button>
+              <Button mode="contained" style={{marginHorizontal: 30, marginTop: 16}} onPress={on_press_follow}>Follow</Button>
             </View>
           </View>
 
@@ -93,7 +95,7 @@ const User = function({navigation, user_id}) {
           
           {snap_user.current_post && (
             <View style={{height: height, marginBottom: 20}}>
-              <Image source={{uri: snap_user.current_post.image_urls[_1080].url}} style={{width: width, height: height}}/>
+              <SwengleImage source={{uri: snap_user.current_post.image_urls[_1080].url}} style={{width: width, height: height}}/>
             </View>
           )}
         </ScrollView>

@@ -81,7 +81,6 @@ const Notificationscreen = function({navigation}) {
           description="Pause all push notifications"
           left={props => <List.Icon {...props} icon="pause" />}
           right={props => <Switch value={settings.is_pause_enabled} onValueChange={on_toggle_pause_all} />}
-          onPress={on_press_likes}
         />
       </List.Section>
       

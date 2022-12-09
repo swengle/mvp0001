@@ -3,10 +3,10 @@
 import $ from "../setup.js";
 import { TransitionPresets } from '@react-navigation/stack';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme } from 'react-native-paper';
 import { Camera } from 'expo-camera';
-import { Image } from "react-native";
+import { Image, TouchableOpacity, View } from "react-native";
 import NameScreen from "./auth/Name";
 import HomeScreen from "./home/Home";
 import AlertsScreen from "./alerts/AlertsScreen";
@@ -21,8 +21,6 @@ import ContactsScreen from "./contacts/ContactsScreen";
 
 import EditorStack from "./EditorStack";
 
-
-import { useSnapshot} from "valtio";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 const Stack = createNativeStackNavigator();
@@ -81,47 +79,53 @@ const UserStack = function() {
   );
 };
 
-const TabNavigator = createMaterialBottomTabNavigator();
+const TabNavigator = createBottomTabNavigator();
 const StackTabs = function({ navigation }) {
   const { colors, dark } = useTheme();
   const [permissionCamera, requestPermissionCamera] = Camera.useCameraPermissions();
   
+  const on_press_new_post = function() {
+    if (!permissionCamera) {
+      requestPermissionCamera();
+      return;
+    } else if (!permissionCamera.granted) {
+      if (permissionCamera.canAskAgain) {
+        requestPermissionCamera();
+      } else {
+        $.dialog.is_camera_permission_visible = true;
+      }
+      return;
+    }
+    $.reset_editor(); 
+    navigation.push("EditorStack");
+  };
+  
   return (
-    <TabNavigator.Navigator shifting={true}>
+    <TabNavigator.Navigator>
       <TabNavigator.Screen name="HomeStack" component={HomeStack} options={{headerShown: false, tabBarLabel: "Home", tabBarIcon: ({ focused, color }) => (
-        <MaterialCommunityIcons name={focused ? "home" : "home-outline"} color={focused ? colors.primary : colors.surfaceDisabled} size={26} />
+        <MaterialCommunityIcons name={focused ? "home" : "home-outline"} color={focused ? colors.primary : colors.outline} size={26} />
       )}}/>
       <TabNavigator.Screen name="DiscoverStack" component={HomeStack} options={{headerShown: false, tabBarLabel: "Discover", tabBarIcon: ({ focused, color }) => (
-        <MaterialCommunityIcons name={focused ? "magnify" : "magnify"} color={focused ? colors.primary : colors.surfaceDisabled} size={26} />
+        <MaterialCommunityIcons name={focused ? "magnify" : "magnify"} color={focused ? colors.primary : colors.outline} size={26} />
       )}}/>
       <TabNavigator.Screen name="NewPostStack" component={HomeStack} options={{headerShown: false, tabBarLabel: "", tabBarIcon: ({ focused, color }) => (
-        dark ?  <Image source={require("../assets/dark-puzzled-500.png")} style={{width: 56, height: 56}}/> : <Image source={require("../assets/light-puzzled-500.png")} style={{width: 56, height: 56}}/>
+        <TouchableOpacity style={{postion: "absolute", width: 60, height: 60, top: 12}} onPress={on_press_new_post}>
+          {dark && <Image source={require("../assets/dark-puzzled-500.png")} style={{width: 60, height: 60}}/>}
+          {!dark && <Image source={require("../assets/light-puzzled-500.png")} style={{width: 60, height: 60}}/>}
+        </TouchableOpacity>
       )}} 
       listeners={{
         tabPress: e => {
           e.preventDefault();
-          if (!permissionCamera) {
-            requestPermissionCamera();
-            return;
-          } else if (!permissionCamera.granted) {
-            if (permissionCamera.canAskAgain) {
-              requestPermissionCamera();
-            } else {
-              $.dialog.is_camera_permission_visible = true;
-            }
-            return;
-          }
-          $.reset_editor(); 
-          navigation.push("EditorStack");
+          on_press_new_post();
         },
       }}
-      //const { status } = await Contacts.requestPermissionsAsync();
       />
       <TabNavigator.Screen name="AlertsStack" component={AlertsStack} options={{headerShown: false, tabBarLabel: "Alerts", tabBarIcon: ({ focused, color }) => (
-        <MaterialCommunityIcons name={focused ? "bell" : "bell-outline"} color={focused ? colors.primary : colors.surfaceDisabled} size={26} />
+        <MaterialCommunityIcons name={focused ? "bell" : "bell-outline"} color={focused ? colors.primary : colors.outline} size={26} />
       )}}/>
       <TabNavigator.Screen name="UserStack" component={UserStack} options={{headerShown: false, tabBarLabel: "Profile", tabBarIcon: ({ focused, color }) => (
-        <MaterialCommunityIcons name={focused ? "account" : "account-outline"} color={focused ? colors.primary : colors.surfaceDisabled} size={26} />
+        <MaterialCommunityIcons name={focused ? "account" : "account-outline"} color={focused ? colors.primary : colors.outline} size={26} />
       )}}
       />
     </TabNavigator.Navigator>
@@ -129,7 +133,6 @@ const StackTabs = function({ navigation }) {
 };
 
 const MainStack = function() {
-  const session = useSnapshot($.session);
   const snap_current_user = $.get_snap_current_user();
   
   return (

@@ -2,6 +2,7 @@
 
 import $ from "../../setup.js";
 $.env = "alpha";
+import _ from "underscore";
 import { useEffect,useRef, useState } from "react";
 import { Platform, KeyboardAvoidingView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
@@ -12,9 +13,17 @@ import { PhoneNumberType, PhoneNumberUtil } from 'google-libphonenumber';
 import { Button, Text, TextInput } from 'react-native-paper';
 import { useToast } from "react-native-toast-notifications";
 
+
 const phone_util = PhoneNumberUtil.getInstance();
 
 const offset = 127397;
+
+
+$.countries = require("./countries.json");
+$.countries_by_cca2 = {};
+_.each($.countries, function(country, idx) {
+  $.countries_by_cca2[country.cca2] = country;
+});
 
 const on_press_privacy_policy = async function() {
   let env = '';
@@ -41,7 +50,7 @@ const on_press_terms_of_service = async function() {
 };
 
 const check_if_phone_is_valid = function() {
-  const calling_code = $.data.countries_by_cca2[$.auth.cca2].calling_code;
+  const calling_code = $.countries_by_cca2[$.auth.cca2].calling_code;
   
   let number;
   let is_possible_number = true;
@@ -99,7 +108,7 @@ function ScreenSignin({ navigation }) {
   };
   
   const on_press_continue = async function() {
-    const calling_code = $.data.countries_by_cca2[$.auth.cca2].calling_code;
+    const calling_code = $.countries_by_cca2[$.auth.cca2].calling_code;
     const phone = calling_code + $.auth.phone_value;
     
     try {
@@ -107,7 +116,7 @@ function ScreenSignin({ navigation }) {
       await $.axios_api.post('/auth_codes', {device_id: $.app.device_id, phone: phone, phone_value: $.auth.phone_value});
       navigation.push("EnterCodeScreen", {phone: phone});
     } catch (e) {
-      $.display_error(toast, e);
+      $.display_error(toast, new Error("Failed to validate phone."));
     } finally {
       setIsBusy(false);
     }
@@ -125,7 +134,7 @@ function ScreenSignin({ navigation }) {
                 <View style={{flexDirection: "row", alignItems: "center"}}>
                   <TouchableOpacity mode="outlined" onPress={on_press_flag} style={{marginRight: 4, flexDirection: "row", alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 4, borderRadius: 10}}>
                     <Text style={{fontFamily: "TwemojiMozilla", fontSize: 48}}>{flag_character}</Text>
-                    <Text style={{fontWeight: "bold", fontSize: 20}}> {$.data.countries_by_cca2[auth_state.cca2].calling_code}</Text>
+                    <Text style={{fontWeight: "bold", fontSize: 20}}> {$.countries_by_cca2[auth_state.cca2].calling_code}</Text>
                   </TouchableOpacity>
                   <TextInput
                     label={<Text style={{color: "gray", fontSize: 16}}>Phone</Text>}

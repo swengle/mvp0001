@@ -10,6 +10,7 @@ import { useSnapshot } from 'valtio';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useToast } from "react-native-toast-notifications";
+import Uploader from "../../components/Uploader";
 
 const CameraScreen = function({ navigation, route }) {
   const toast = useToast();
@@ -18,7 +19,7 @@ const CameraScreen = function({ navigation, route }) {
     source = route.params.source;
   }
   const editor_snap = useSnapshot($.editor);
-  const current_user = $.get_snap_current_user();
+  const snap_current_user = $.get_snap_current_user();
   const {width} = useWindowDimensions();
   const ref_camera = useRef();
   const [cameraType, setCameraType] = useState(CameraType.back);
@@ -74,8 +75,8 @@ const CameraScreen = function({ navigation, route }) {
         height = 1350;
       }
       $.editor.pic = await ImageManipulator.manipulateAsync(pic.uri, [{resize: {height: height, width: source === "new_pic" ? 1080 : 110}}], {compress: source === "new_pic" ? 0.9 : 1});
-      $.editor.uploader.reset();
-      $.editor.uploader.upload(current_user.id + (source === "new_pic" ? "/images" : "/profile_images"), $.editor.pic.uri, "image");
+      $.uploader = new Uploader();
+      $.uploader.upload(snap_current_user.id + (source === "new_pic" ? "/images" : "/profile_images"), $.editor.pic.uri, "image");
       if (flashMode === FlashMode.off && source === "new_pic") {
         ref_camera.current.resumePreview();
       } else {
@@ -131,8 +132,8 @@ const CameraScreen = function({ navigation, route }) {
       }
 
       $.editor.pic = await ImageManipulator.manipulateAsync(asset.uri, ops, {compress: source === "new_pic" ? 0.9 : 1});
-      $.editor.uploader.reset();
-      $.editor.uploader.upload(current_user.id + (source === "new_pic" ? "/images" : "/profile_images"), $.editor.pic.uri, "image");
+      $.uploader = new Uploader();
+      $.uploader.upload(snap_current_user.id + (source === "new_pic" ? "/images" : "/profile_images"), $.editor.pic.uri, "image");
     } else {
       source === "new_pic" && navigation.goBack();
     }

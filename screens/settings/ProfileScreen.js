@@ -10,7 +10,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { ActivityIndicator, Button, HelperText, useTheme } from 'react-native-paper';
 import { subscribeKey } from 'valtio/utils';
 import { useToast } from "react-native-toast-notifications";
-
+import { useSnapshot } from "valtio";
 const user_name_regex = /^[a-zA-Z0-9_][a-zA-Z0-9_.]*/;
 
 const get_diff_in_hours = function(start_date, end_date) {
@@ -22,7 +22,7 @@ const get_diff_in_hours = function(start_date, end_date) {
 const ProfileScreen = function({navigation}) {
   const toast = useToast();
   const { colors } = useTheme();
-  const snap_uploader = $.editor.uploader.snap();
+  const snap_uploader = useSnapshot($.uploader.state);
   const current_user = $.get_current_user();
   const snap_current_user = $.get_snap_current_user();
   const [is_saving, set_is_saving] = useState(false);
@@ -44,7 +44,7 @@ const ProfileScreen = function({navigation}) {
       $.get_current_user().profile_image_url = response_update.data.profile_image_url;
       $.reset_editor();
     } catch (e) {
-      $.display_error(toast, e);
+      $.display_error(toast, new Error("Failed to update profile image."));
       set_is_saving_error(true);
     } finally {
       set_is_saving(false);
@@ -52,7 +52,7 @@ const ProfileScreen = function({navigation}) {
   };
   
   useEffect(() => {
-    const unsubscribe = subscribeKey($.editor.uploader.state, "response", async (response) => {
+    const unsubscribe = subscribeKey($.uploader.state, "response", async (response) => {
       if (response) {
         await save_user({profile_image_url: response.secure_url});
       }
@@ -84,7 +84,7 @@ const ProfileScreen = function({navigation}) {
   const retry = async function() {
     set_is_saving_error(false);
     if (!snap_uploader.response) {
-      $.editor.uploader.retry(); 
+      $.uploader.retry(); 
     } else {
       await save_user({profile_image_url: snap_uploader.response.secure_url});
     }
@@ -117,7 +117,7 @@ const ProfileScreen = function({navigation}) {
       _.extend(current_user, _.pick(response_update.data, "username", "name", "bio"));
       set_is_dirty(false);
     } catch (e) {
-      $.display_error(toast, e);
+      $.display_error(toast, new Error("Failed to update user."));
       set_is_saving_profile_error(true);
     } finally {
       set_is_saving_profile(false);

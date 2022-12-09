@@ -27,7 +27,7 @@ function ScreenName({ navigation }) {
       const data = (await $.axios_api.get("/users/username-available/" + val)).data;
       setIsUsernameAvailable(data.is_available);
     } catch (e) {
-      $.display_error(toast, e);
+      $.display_error(toast, new Error("Unable to check username."));
     } finally {
       setIsBusy(false);
     }
@@ -63,7 +63,7 @@ function ScreenName({ navigation }) {
       const user = (await $.axios_api.post("/users/me", {username: username, name: name})).data;
       $.cache.set_user(user); // this should update the username and load the main stack
     } catch (e) {
-      $.display_error(toast, e);
+      $.display_error(toast, new Error("Failed to update username."));
     } finally {
       setIsBusy(false);
     }

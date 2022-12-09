@@ -13,6 +13,11 @@ const config = {
   },
   getstream: {
     api_key: "jd53kknu578f"
+  },
+  cloudinary: {
+    api_key: '431814526122448',
+    secret: '7kavMkYkmeJ_ccNz34gvxMfeDlk',
+    cloud_name: 'dedktvy6d'
   }
 
 };
