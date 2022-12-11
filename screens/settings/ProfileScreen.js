@@ -5,9 +5,8 @@ import { useEffect, useState } from "react";
 import { Platform, Keyboard, KeyboardAvoidingView, ScrollView, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar, TextInput } from "react-native-paper";
-import Header from "../../components/Header";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { ActivityIndicator, Button, HelperText, useTheme } from 'react-native-paper';
+import { ActivityIndicator, Appbar, Button, HelperText, useTheme } from 'react-native-paper';
 import { subscribeKey } from 'valtio/utils';
 import { useToast } from "react-native-toast-notifications";
 import { useSnapshot } from "valtio";
@@ -147,13 +146,7 @@ const ProfileScreen = function({navigation}) {
       set_is_username_valid(false);
     }
   };
-  
-  let header_right = null;
-  if (is_saving_profile) {
-    header_right = <ActivityIndicator style={{marginRight: 10}}/>;
-  } else if (is_dirty && is_username_valid && is_name_valid) {
-    header_right = <Button onPress={on_press_save}>Save</Button> ;
-  }
+
   
   let is_can_edit_username = false;
   const last_update_at = snap_current_user.change_username_at.toDate();
@@ -175,7 +168,12 @@ const ProfileScreen = function({navigation}) {
   
   return (
     <SafeAreaView style ={{flex: 1}} edges={['top', 'left', 'right']}>
-      <Header on_press_back={on_press_back} title="Profile Settings" right={header_right}/>
+      <Appbar.Header>
+        <Appbar.BackAction onPress={on_press_back} />
+        <Appbar.Content title="Profile Settings" />
+        {is_saving_profile && <ActivityIndicator style={{marginRight: 10}}/>}
+        {!is_saving_profile && is_dirty && is_username_valid && is_name_valid && <Button onPress={on_press_save}>Save</Button> }
+      </Appbar.Header>
       <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
         <ScrollView style={{flex: 1, padding: 10}}>
           <View style={{marginTop: 20, alignItems: "center"}}>

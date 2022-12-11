@@ -2,7 +2,7 @@
 import $ from "../setup";
 import { useState } from "react";
 import { useToast } from "react-native-toast-notifications";
-import { View } from 'react-native';
+import { TouchableOpacity, View } from 'react-native';
 import { Avatar, Button, HelperText, Text, useTheme } from "react-native-paper";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { getHex } from "pastel-color";
@@ -71,17 +71,21 @@ const UserRow = function({row_id, navigation, onRefreshNeeded}) {
     }
   };
   
+  const on_press_user = function() {
+    navigation.push("UserScreen", { user_id: row.user.id });
+  };
+  
   if (row_snap.user) {
     return (
       <View style={{flexDirection: "row", alignItems: "center", padding: 10}}>
-        <View style={{flex: 7, flexDirection: "row", alignItems: "center"}}>
+        <TouchableOpacity onPress={on_press_user} style={{flex: 7, flexDirection: "row", alignItems: "center"}}>
           <Avatar.Image size={64} source={{uri: row_snap.user.profile_image_url}} style={{marginRight: 10}}/>
           <View>
             <Text variant="titleSmall">{row_snap.user.username}</Text>
             {row_snap.user.name &&  <Text variant="bodySmall">{row_snap.user.name}</Text>}
             <Text variant="labelMedium" style={{color: colors.outline}}><MaterialCommunityIcons name="account-box-outline" size={14} />{row.contact_name}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
         {row_snap.relationship && (
           <View style={{flex: 3}}>
             <Button mode="contained" compact={true} onPress={on_press_relationship}>{busy_button_text ? busy_button_text : get_relationship_button_text(row_snap.relationship.status)}</Button>

@@ -3,13 +3,12 @@ import $ from "../../setup";
 import _ from "underscore";
 import { useState } from "react";
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Platform, FlatList, StyleSheet, View } from "react-native";
+import { FlatList, StyleSheet, View } from "react-native";
 import { TouchableOpacity } from "react-native-gesture-handler";
 import { useSnapshot } from 'valtio';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import Header from "../../components/Header";
 import { useKeyboard } from '@react-native-community/hooks';
-import { Divider, Searchbar, Text, useTheme } from 'react-native-paper';
+import { Appbar, Divider, Searchbar, Text, useTheme } from 'react-native-paper';
 
 const offset = 127397;
 
@@ -73,7 +72,10 @@ const ScreenSelectCountry = function({ navigation }) {
   const keyboardHeight = useKeyboard();
   return (
     <SafeAreaView style ={{flex: 1}} edges={['right', 'left']}>
-      <Header title="Select Country" on_press_back={on_press_back} is_modal={true}/>
+      <Appbar.Header>
+        <Appbar.BackAction onPress={on_press_back} />
+        <Appbar.Content title="Select Country" />
+      </Appbar.Header>
       <Searchbar placeholder="Search" onChangeText={on_change_text} value={search_text} autoCapitalize={false} autoCorrect={false} autoComplete="none" autoFocus={true}/>
       <FlatList
         keyboardShouldPersistTaps="always"

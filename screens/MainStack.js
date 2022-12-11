@@ -6,12 +6,13 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme } from 'react-native-paper';
 import { Camera } from 'expo-camera';
-import { Image, TouchableOpacity, View } from "react-native";
+import { Image, TouchableOpacity } from "react-native";
 import NameScreen from "./auth/Name";
 import HomeScreen from "./home/Home";
 import AlertsScreen from "./alerts/AlertsScreen";
 import UserScreen from "./user/UserScreen";
 import UserListScreen from "./user/UserListScreen";
+import HistoryScreen from "./user/HistoryScreen";
 
 import SettingsScreen from "./settings/SettingsScreen";
 import ProfileScreen from "./settings/ProfileScreen";
@@ -73,6 +74,7 @@ const UserStack = function() {
     <UserStackNavigator.Navigator>
       <UserStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
+      <UserStackNavigator.Screen name="HistoryScreen" component={HistoryScreen} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="SettingsStack" component={SettingsStack} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="ContactsStack" component={ContactsStack} options={{headerShown: false}}/>
     </UserStackNavigator.Navigator>

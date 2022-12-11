@@ -2,8 +2,7 @@
 import $ from "../../setup";
 import { ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, Checkbox, List} from "react-native-paper";
-import Header from "../../components/Header";
+import { Appbar, Button, Checkbox, List} from "react-native-paper";
 import { getAuth, signOut } from "firebase/auth";
 import * as WebBrowser from 'expo-web-browser';
 import { useSnapshot } from "valtio";
@@ -72,7 +71,10 @@ const SettingsScreen = function({navigation}) {
   
   return (
     <SafeAreaView style ={{flex: 1}} edges={['top', 'left', 'right']}>
-    <Header on_press_back={on_press_back} title="Settings"/>
+     <Appbar.Header>
+        <Appbar.BackAction onPress={on_press_back} />
+        <Appbar.Content title="Settings" />
+      </Appbar.Header>
       <ScrollView style={{flex: 1}}>
         <List.Section>
           <List.Subheader>Privacy</List.Subheader>

@@ -2,8 +2,7 @@
 import $ from "../../setup";
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Button, Checkbox, Switch, Text, List} from "react-native-paper";
-import Header from "../../components/Header";
+import { Appbar, Button, Checkbox, Switch, Text, List} from "react-native-paper";
 import {useSnapshot} from "valtio";
 import firestore from "../../firestore/firestore";
 
@@ -67,7 +66,11 @@ const Notificationscreen = function({navigation}) {
   
   return (
     <SafeAreaView style ={{flex: 1}} edges={['top', 'left', 'right']}>
-    <Header on_press_back={on_press_back} title="Notification Settings"/>
+    <Appbar.Header>
+      <Appbar.BackAction onPress={on_press_back} />
+      <Appbar.Content title="Notification Settings" />
+    </Appbar.Header>
+    
     <ScrollView style={{flex: 1}}>
       <List.Section>
         <List.Subheader>General</List.Subheader>

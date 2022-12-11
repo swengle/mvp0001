@@ -11,7 +11,6 @@ import { useSnapshot } from 'valtio';
 import { subscribeKey } from 'valtio/utils';
 import { PhoneNumberType, PhoneNumberUtil } from 'google-libphonenumber';
 import { Button, Text, TextInput } from 'react-native-paper';
-import firestore from "../../firestore/firestore";
 
 const pad = function(n, width, z) {
   z = z || '0';
@@ -105,8 +104,7 @@ function ScreenSignin({ navigation }) {
   }, []);
 
   const on_press_flag = async function() {
-    await firestore.test();
-    //navigation.push("SelectCountryScreen");
+    navigation.push("SelectCountryScreen");
   };
   
   const on_press_continue = async function() {

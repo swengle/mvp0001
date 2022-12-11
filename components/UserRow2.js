@@ -2,7 +2,7 @@
 import $ from "../setup";
 import { useState } from "react";
 import { useToast } from "react-native-toast-notifications";
-import { View } from 'react-native';
+import { TouchableOpacity, View } from 'react-native';
 import { Avatar, Button, Text } from "react-native-paper";
 import firestore from "../firestore/firestore";
 
@@ -29,7 +29,7 @@ const get_relationship_button_text = function(status) {
   return status;
 };
 
-const UserRow2 = function({row_id, navigation, rows_by_id, rows_by_id_snap}) {
+const UserRow2 = function({row_id, navigation, rows_by_id}) {
   const row = rows_by_id[row_id];
   const toast = useToast();
   const [busy_button_text, set_busy_button_text] = useState();
@@ -55,17 +55,21 @@ const UserRow2 = function({row_id, navigation, rows_by_id, rows_by_id_snap}) {
       $.display_error(toast, new Error("Failed to update relationship."));
     }
   };
+  
+  const on_press_user = function() {
+    navigation.push("UserScreen", {user_id: row.user.id});
+  };
 
   return (
     <View style={{flexDirection: "row", alignItems: "center", padding: 10}}>
-      <View style={{flex: 7, flexDirection: "row", alignItems: "center"}}>
+      <TouchableOpacity onPress={on_press_user} style={{flex: 7, flexDirection: "row", alignItems: "center"}}>
         <Avatar.Image size={64} source={{uri: row.user.profile_image_url}} style={{marginRight: 10}}/>
         <View>
           <Text variant="titleSmall">{row.user.username}</Text>
           {row.user.name &&  <Text variant="bodySmall">{row.user.name}</Text>}
         </View>
-      </View>
-      {row.relationship && (
+      </TouchableOpacity>
+      {row.relationship && (row.relationship.id !== $.session.uid) && (
         <View style={{flex: 3}}>
           <Button mode="contained" compact={true} onPress={on_press_relationship}>{busy_button_text ? busy_button_text : get_relationship_button_text(row.relationship.status)}</Button>
         </View>

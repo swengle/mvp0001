@@ -12,7 +12,7 @@ import {
   useClearByFocusCell,
 } from 'react-native-confirmation-code-field';
 import { useToast } from "react-native-toast-notifications";
-import { Text, useTheme } from 'react-native-paper';
+import { ActivityIndicator, Text, useTheme } from 'react-native-paper';
 import { getAuth, signInWithCustomToken } from "firebase/auth";
 const CELL_COUNT = 5;
 import { useSnapshot } from "valtio";
@@ -42,12 +42,14 @@ const EnterCode = function({route, navigation}) {
   
   
   const on_blur = async function() {
+    let is_all_good = false;
     try {
       set_is_busy(true);
       if (value === $.auth.pin.code) {
         const response = await f_get_auth_token({ phone: $.auth.pin.phone });
         await signInWithCustomToken(auth, response.data.token);
         delete $.auth.pin;
+        is_all_good = true;
       } else {
         $.auth.pin.attempts_left--;
         if ($.auth.pin.attempts_left === 0) {
@@ -61,46 +63,56 @@ const EnterCode = function({route, navigation}) {
       $.display_error(toast, new Error("Unable to validate code."));
       set_value("");
     } finally {
-      set_is_busy(false);
-      ref.current && ref.current.focus();
+      if (!is_all_good) {
+        set_is_busy(false);
+        ref.current && ref.current.focus(); 
+      }
     }
   };
   
   return (
     <SafeAreaView style ={{flex: 1}}>
-      <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
-        <ScrollView keyboardShouldPersistTaps='always' style={{flex: 1}} contentContainerStyle={{padding: 10, flex: 1}} >
-          <Text style={{fontSize: 20, marginTop: 10, marginBottom: 10, fontWeight: "bold", textAlign: "center"}}>Enter the code we sent to {snap_auth.phone}</Text>
-          <View style={{marginLeft: 40, marginRight: 40}}>
-            <CodeField
-              autoFocus={true}
-              onBlur={on_blur}
-              ref={ref}
-              {...props}
-              // Use `caretHidden={false}` when users can't paste a text value, because context menu doesn't appear
-              value={value}
-              onChangeText={set_value}
-              cellCount={CELL_COUNT}
-              rootStyle={styles.codeFieldRoot}
-              keyboardType="number-pad"
-              textContentType="oneTimeCode"
-              renderCell={({index, symbol, isFocused}) => (
-                <Text
-                  key={index}
-                  style={[styles.cell, isFocused && {borderColor: colors.text}]}
-                  onLayout={getCellOnLayoutHandler(index)}>
-                  {symbol || (isFocused ? <Cursor /> : null)}
-                </Text>
-              )}
-            />
-          </View>
-          <View style={{flex: 1, alignItems: "center", justifyContent: "flex-end"}}>
-            <TouchableOpacity onPress={on_press_not_my_number}>
-                <Text style={{color: "gray", fontWeight: "bold", fontSize: 15}}>This isn't my phone number</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      {is_busy && (
+        <View style={{flex:1, alignItems: "center", justifyContent: "center"}}>
+          <ActivityIndicator/>
+        </View>
+      )}
+
+      {!is_busy && (
+        <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
+          <ScrollView keyboardShouldPersistTaps='always' style={{flex: 1}} contentContainerStyle={{padding: 10, flex: 1}} >
+            <Text style={{fontSize: 20, marginTop: 10, marginBottom: 10, fontWeight: "bold", textAlign: "center"}}>Enter the code we sent to {snap_auth.phone}</Text>
+            <View style={{marginLeft: 40, marginRight: 40}}>
+              <CodeField
+                autoFocus={true}
+                onBlur={on_blur}
+                ref={ref}
+                {...props}
+                // Use `caretHidden={false}` when users can't paste a text value, because context menu doesn't appear
+                value={value}
+                onChangeText={set_value}
+                cellCount={CELL_COUNT}
+                rootStyle={styles.codeFieldRoot}
+                keyboardType="number-pad"
+                textContentType="oneTimeCode"
+                renderCell={({index, symbol, isFocused}) => (
+                  <Text
+                    key={index}
+                    style={[styles.cell, isFocused && {borderColor: colors.text}]}
+                    onLayout={getCellOnLayoutHandler(index)}>
+                    {symbol || (isFocused ? <Cursor /> : null)}
+                  </Text>
+                )}
+              />
+            </View>
+            <View style={{flex: 1, alignItems: "center", justifyContent: "flex-end"}}>
+              <TouchableOpacity onPress={on_press_not_my_number}>
+                  <Text style={{color: "gray", fontWeight: "bold", fontSize: 15}}>This isn't my phone number</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      )}
     </SafeAreaView>
   );
 };

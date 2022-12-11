@@ -4,8 +4,7 @@ import _ from "underscore";
 import { Fragment, useEffect, useState } from "react";
 import { FlatList, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ActivityIndicator, Button, HelperText, Text } from "react-native-paper";
-import Header from "../../components/Header";
+import { ActivityIndicator, Appbar, Button, HelperText, Text } from "react-native-paper";
 import * as Contacts from 'expo-contacts';
 import { useToast } from "react-native-toast-notifications";
 import UserRow from "../../components/UserRow";
@@ -146,7 +145,10 @@ const ContactsScreen = function({ navigation }) {
 
   return (
     <SafeAreaView style ={{flex: 1}} edges={['top', 'left', 'right']}>
-    <Header on_press_back={on_press_back} title="Contacts"/>
+    <Appbar.Header>
+      <Appbar.BackAction onPress={on_press_back} />
+      <Appbar.Content title="Contacts" />
+    </Appbar.Header>
      <View style={{ flex: 1 }} contentContainerStyle={{flexGrow: 1}}>
       {!isError && isBusy && (
         <View style={{flex:1, alignItems: "center", justifyContent: "center"}}>
