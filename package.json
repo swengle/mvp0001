@@ -50,6 +50,7 @@
     "react-native-webview": "^11.25.0",
     "styled-components": "^5.3.6",
     "timeago.js": "^4.0.2",
+    "ulidx": "^0.3.0",
     "underscore": "^1.13.6",
     "valtio": "^1.7.6"
   },

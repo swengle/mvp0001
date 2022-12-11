@@ -7,6 +7,7 @@ import Header from "../../components/Header";
 import { getAuth, signOut } from "firebase/auth";
 import * as WebBrowser from 'expo-web-browser';
 import { useSnapshot } from "valtio";
+import firestore from "../../firestore/firestore";
 
 const SettingsScreen = function({navigation}) {
   const current_user = $.get_current_user();
@@ -15,17 +16,6 @@ const SettingsScreen = function({navigation}) {
 
   const on_press_back = function() {
     navigation.goBack();
-  };
-  
-  const save_setting = async function(setting_name, setting_value) {
-    const orig = current_user[setting_name];
-    current_user[setting_name] = setting_value;
-    try {
-      await $.axios_api.post("/users/me/setting", {setting_name: setting_name, setting_value: setting_value});
-    } catch (e) {
-      console.log(e);
-      current_user[setting_name] = orig;
-    }
   };
   
   const on_press_logout = async function() {
@@ -42,7 +32,10 @@ const SettingsScreen = function({navigation}) {
   };
   
   const on_press_private = async function() {
-    await save_setting("is_account_public", !current_user.is_account_public);
+    await firestore.update_user_account_privacy({
+      id: $.session.uid,
+      is_account_public: !current_user.is_account_public
+    });
   };
   
   const on_press_privacy_policy = async function() {

@@ -14,14 +14,24 @@ import axios from "axios";
 import Cache from "./cache";
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 import Constants from 'expo-constants';
 import * as IntentLauncher from 'expo-intent-launcher';
 import messaging from '@react-native-firebase/messaging';
 import * as timeago from 'timeago.js';
+import uuid from 'react-native-uuid';
+import firestore from "./firestore/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 
 $.logger = logger.createLogger();
 
 $.logger.info($.build_version);
+
+$.id = {
+  create: function() {
+    return uuid.v4();
+  }
+};
 
 const locale = function(number, index, totalSec) {
   // number: the time ago / time in number;
@@ -102,6 +112,8 @@ $.axios_api.interceptors.response.use(
 );
 
 $.firebase = initializeApp($.config.firebase);
+$.db = getFirestore($.firebase);
+firestore.set_db($.db);
 
 $.display_error = function(toast, e) {
   toast.show(e.message, { type: "danger" });
@@ -135,25 +147,25 @@ $.reset_editor = function() {
 };
 
 $.check_notification_permissions = async function() {
-  const current_user = $.get_current_user();
   const auth_status = await messaging().requestPermission();
-  $.session.messaging_requested = true;
   const is_enabled = auth_status === messaging.AuthorizationStatus.AUTHORIZED || auth_status === messaging.AuthorizationStatus.PROVISIONAL;
   if (is_enabled) {
-    const token = await messaging().getToken();
-    if (current_user.settings_messaging[token]) {
-      $.session.messaging_token = token;
-    } else {
-      try {
-        const data = (await $.axios_api.post("/users/me/messaging-token", {token: token})).data;
-        current_user.settings_messaging[token] = data;
-        $.session.messaging_token = token; 
-      } catch (e) {
-        console.log(e);
-      }
+    if ($.session.messaging) {
+      return;
     }
+    const token = await messaging().getToken();
+    onSnapshot(doc($.db, "messaging_config", token), async (doc) => {
+      if (doc.exists()) {
+        $.session.messaging_config = doc.data();
+        return;
+      }
+      await firestore.create_messaging_config({
+        uid: $.session.uid,
+        token: token,
+      });
+    });
   } else {
-    delete $.session.messaging_token;
+    delete $.session.messaging;
   }
   return function() {
 

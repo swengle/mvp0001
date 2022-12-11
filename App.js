@@ -16,6 +16,7 @@ import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { StatusBar } from 'expo-status-bar';
 import messaging from '@react-native-firebase/messaging';
 import { Asset } from 'expo-asset';
+import { doc, onSnapshot } from "firebase/firestore";
 
 const { LightTheme, DarkTheme } = adaptNavigationTheme({
   light: NavigationDefaultTheme,
@@ -54,7 +55,7 @@ export default function App() {
   const snap_session = useSnapshot($.session);
   const snap_dialog = useSnapshot($.dialog);
   const scheme = useColorScheme();
-  let unsubscribe_app, unsubscribe_auth_state, unsubscribe_session, unsubscribe_messaging, unsubscribe_background_messaging, unsubscribe_app_state;
+  let unsubscribe_app, unsubscribe_auth_state, unsubscribe_session, unsubscribe_messaging, unsubscribe_background_messaging, unsubscribe_app_state, unsubscribe_current_user;
  
   useEffect(() => {
     async function prepare() {
@@ -63,13 +64,13 @@ export default function App() {
           AsyncStorage.setItem("@state", JSON.stringify($.app));
         });
         
-        unsubscribe_auth_state = onAuthStateChanged(auth, async function(user) {
-          if (user) {
+        unsubscribe_auth_state = onAuthStateChanged(auth, async function(u) {
+          if (u) {
             try {
-              const user = (await $.axios_api.get("/users/me")).data;
-              user.settings = {};
-              $.cache.set_user(user);
-              $.session.uid = user.id;
+              unsubscribe_current_user = onSnapshot(doc($.db, "user", u.uid), (doc) => {
+                $.cache.set_user(doc.data());
+                $.session.uid = doc.data().id;
+              });
             } catch(e) {
               console.log(e);
             }
@@ -138,6 +139,7 @@ export default function App() {
       unsubscribe_messaging && unsubscribe_messaging();
       unsubscribe_background_messaging && unsubscribe_background_messaging();
       unsubscribe_app_state && unsubscribe_app_state.remove();
+      unsubscribe_current_user && unsubscribe_current_user();
     };
   }, []);
   

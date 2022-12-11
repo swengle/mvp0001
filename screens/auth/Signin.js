@@ -3,7 +3,7 @@
 import $ from "../../setup.js";
 $.env = "alpha";
 import _ from "underscore";
-import { useEffect,useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Platform, KeyboardAvoidingView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,13 +11,17 @@ import { useSnapshot } from 'valtio';
 import { subscribeKey } from 'valtio/utils';
 import { PhoneNumberType, PhoneNumberUtil } from 'google-libphonenumber';
 import { Button, Text, TextInput } from 'react-native-paper';
-import { useToast } from "react-native-toast-notifications";
+import firestore from "../../firestore/firestore";
 
+const pad = function(n, width, z) {
+  z = z || '0';
+  n = n + '';
+  return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
+};
 
 const phone_util = PhoneNumberUtil.getInstance();
 
 const offset = 127397;
-
 
 $.countries = require("./countries.json");
 $.countries_by_cca2 = {};
@@ -81,10 +85,7 @@ const on_change_text_phone = function(value) {
 
 
 function ScreenSignin({ navigation }) {
-  const toast = useToast();
-  
-  const [isBusy, setIsBusy] = useState(false);
-  const auth_state = useSnapshot($.auth);
+  const snap_auth = useSnapshot($.auth);
   const ref_input = useRef();
 
   useEffect(() => {
@@ -103,26 +104,27 @@ function ScreenSignin({ navigation }) {
     
   }, []);
 
-  const on_press_flag = function() {
-    navigation.push("SelectCountryScreen");
+  const on_press_flag = async function() {
+    await firestore.test();
+    //navigation.push("SelectCountryScreen");
   };
   
   const on_press_continue = async function() {
     const calling_code = $.countries_by_cca2[$.auth.cca2].calling_code;
     const phone = calling_code + $.auth.phone_value;
     
-    try {
-      setIsBusy(true);
-      await $.axios_api.post('/auth_codes', {device_id: $.app.device_id, phone: phone, phone_value: $.auth.phone_value});
-      navigation.push("EnterCodeScreen", {phone: phone});
-    } catch (e) {
-      $.display_error(toast, new Error("Failed to validate phone."));
-    } finally {
-      setIsBusy(false);
-    }
+    $.auth.pin = {
+      phone: phone,
+      created_at: Date.now(),
+      code: pad(_.random(99999), 5),
+      attempts_left: 5
+    };
+    
+    console.log("TODO: send sms to :" + phone + ", with code: " + $.auth.pin.code);
+    navigation.push("EnterCodeScreen");
   };
   
-  const cc = auth_state.cca2.toUpperCase();
+  const cc = snap_auth.cca2.toUpperCase();
   const flag_character = /^[A-Z]{2}$/.test(cc) ? String.fromCodePoint(...[...cc].map(c => c.charCodeAt() + offset)) : null;
   
   return (
@@ -134,7 +136,7 @@ function ScreenSignin({ navigation }) {
                 <View style={{flexDirection: "row", alignItems: "center"}}>
                   <TouchableOpacity mode="outlined" onPress={on_press_flag} style={{marginRight: 4, flexDirection: "row", alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 4, borderRadius: 10}}>
                     <Text style={{fontFamily: "TwemojiMozilla", fontSize: 48}}>{flag_character}</Text>
-                    <Text style={{fontWeight: "bold", fontSize: 20}}> {$.countries_by_cca2[auth_state.cca2].calling_code}</Text>
+                    <Text style={{fontWeight: "bold", fontSize: 20}}> {$.countries_by_cca2[snap_auth.cca2].calling_code}</Text>
                   </TouchableOpacity>
                   <TextInput
                     label={<Text style={{color: "gray", fontSize: 16}}>Phone</Text>}
@@ -144,7 +146,7 @@ function ScreenSignin({ navigation }) {
                     underlineColorAndroid="transparent"
                     autoCapitalize="none"
                     keyboardType="phone-pad"
-                    value={auth_state.phone_value}
+                    value={snap_auth.phone_value}
                     onChangeText={on_change_text_phone}
                   />
                 </View>
@@ -154,7 +156,7 @@ function ScreenSignin({ navigation }) {
               <Text style={{marginBottom: 6, textAlign: "center"}}>
                 By tapping "Continue", you agree to our <Text onPress={on_press_privacy_policy} style={{fontWeight: "bold"}}>Privacy Policy</Text> and <Text onPress={on_press_terms_of_service} style={{fontWeight: "bold"}}>Terms of Service</Text>.
               </Text>
-              <Button onPress={on_press_continue} disabled={!auth_state.is_phone_valid || isBusy} onPress={on_press_continue} mode="contained">
+              <Button onPress={on_press_continue} disabled={!snap_auth.is_phone_valid} onPress={on_press_continue} mode="contained">
                   Continue
               </Button>
             </View>

@@ -7,6 +7,7 @@ import { Platform, KeyboardAvoidingView, ScrollView, StyleSheet, View } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Text, TextInput } from 'react-native-paper';
 import { useToast } from "react-native-toast-notifications";
+import firestore from "../../firestore/firestore";
 
 const user_name_regex = /^[a-zA-Z0-9_][a-zA-Z0-9_.]*/;
 
@@ -19,13 +20,11 @@ function ScreenName({ navigation }) {
   const [isNameValid, setIsNameValid] = useState(true);
   const [isUsernameAvailable, setIsUsernameAvailable] = useState(false);
   
-  
   const check_if_valid_username = _.debounce(async function(val) {
     try {
       setIsUsernameValid(true);
       setIsBusy(true);
-      const data = (await $.axios_api.get("/users/username-available/" + val)).data;
-      setIsUsernameAvailable(data.is_available);
+      setIsUsernameAvailable(await firestore.is_username_available({username: val}));
     } catch (e) {
       $.display_error(toast, new Error("Unable to check username."));
     } finally {
@@ -60,9 +59,9 @@ function ScreenName({ navigation }) {
     const name = nameValue.trim();
     try {
       setIsBusy(true);
-      const user = (await $.axios_api.post("/users/me", {username: username, name: name})).data;
-      $.cache.set_user(user); // this should update the username and load the main stack
+      await firestore.update_user({id: $.session.uid, username: username, name: name});
     } catch (e) {
+      console.log(e);
       $.display_error(toast, new Error("Failed to update username."));
     } finally {
       setIsBusy(false);

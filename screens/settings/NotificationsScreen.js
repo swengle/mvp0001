@@ -5,11 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Checkbox, Switch, Text, List} from "react-native-paper";
 import Header from "../../components/Header";
 import {useSnapshot} from "valtio";
+import firestore from "../../firestore/firestore";
 
 
 const Notificationscreen = function({navigation}) {
-  const current_user = $.get_current_user();
-  const snap_current_user = $.get_snap_current_user();
   const snap_session = useSnapshot($.session);
   
   const on_press_back = function() {
@@ -24,7 +23,7 @@ const Notificationscreen = function({navigation}) {
     $.openAppSettings();
   };
   
-  if (!snap_session.messaging_token) {
+  if (!snap_session.messaging_config) {
     return (
       <SafeAreaView style ={{flex: 1}} edges={['top', 'left', 'right']}>
         <Header on_press_back={on_press_back} title="Notification Settings"/>
@@ -35,39 +34,35 @@ const Notificationscreen = function({navigation}) {
       </SafeAreaView>
     );
   }
-  
-  const settings = snap_current_user.settings_messaging[snap_session.messaging_token];
-  
-  
-  const save_messaging_setting = async function(setting_name, setting_value) {
-    const orig = current_user.settings_messaging[snap_session.messaging_token][setting_name];
-    current_user.settings_messaging[snap_session.messaging_token][setting_name] = setting_value;
-    try {
-      await $.axios_api.post("/users/me/messaging-setting", {token: snap_session.messaging_token, setting_name: setting_name, setting_value: setting_value});
-    } catch (e) {
-      console.log(e);
-      current_user.settings_messaging[snap_session.messaging_token][setting_name] = orig;
-    }
+
+  const save_messaging_config = async function(setting_name, setting_value) {
+    const new_setting = {};
+    new_setting[setting_name] = setting_value;
+    await firestore.update_messaging_config({
+      uid: $.session.uid,
+      token: $.session.messaging_config.token,
+      settings: new_setting
+    });
   };
   
   const on_toggle_pause_all = async function() {
-    await save_messaging_setting("is_pause_enabled", !settings.is_pause_enabled);
+    await save_messaging_config("is_pause_enabled", !$.session.messaging_config.is_pause_enabled);
   };
   
   const on_press_is_likes_disabled = async function() {
-    await save_messaging_setting("is_likes_disabled", !settings.is_likes_disabled);
+    await save_messaging_config("is_likes_disabled", !$.session.messaging_config.is_likes_disabled);
   };
   
   const on_press_is_comments_disabled = async function() {
-    await save_messaging_setting("is_comments_disabled", !settings.is_comments_disabled);
+    await save_messaging_config("is_comments_disabled", !$.session.messaging_config.is_comments_disabled);
   };
   
   const on_press_is_follower_requests_disabled = async function() {
-    await save_messaging_setting("is_follower_requests_disabled", !settings.is_follower_requests_disabled);
+    await save_messaging_config("is_follower_requests_disabled", !$.session.messaging_config.is_follower_requests_disabled);
   };
   
   const on_press_accepted_follower_requests_disabled = async function() {
-    await save_messaging_setting("is_accepted_follower_requests_disabled", !settings.is_accepted_follower_requests_disabled);
+    await save_messaging_config("is_accepted_follower_requests_disabled", !$.session.messaging_config.is_accepted_follower_requests_disabled);
   };
   
   return (
@@ -80,7 +75,7 @@ const Notificationscreen = function({navigation}) {
           title="Pause All"
           description="Pause all push notifications"
           left={props => <List.Icon {...props} icon="pause" />}
-          right={props => <Switch value={settings.is_pause_enabled} onValueChange={on_toggle_pause_all} />}
+          right={props => <Switch value={$.session.messaging_config.is_pause_enabled} onValueChange={on_toggle_pause_all} />}
         />
       </List.Section>
       
@@ -90,14 +85,14 @@ const Notificationscreen = function({navigation}) {
           title="Likes"
           description="joesmoe liked your photo"
           left={props => <List.Icon {...props} icon="heart" />}
-          right={props => <Checkbox  status={settings.is_likes_disabled ? 'unchecked' : 'checked'}/>}
+          right={props => <Checkbox  status={$.session.messaging_config.is_likes_disabled ? 'unchecked' : 'checked'}/>}
           onPress={on_press_is_likes_disabled}
         />
         <List.Item
           title="Comments"
           description={"joesmoe commented: \"Go team USA!\""} 
           left={props => <List.Icon {...props} icon="comment" />}
-          right={props => <Checkbox  status={settings.is_comments_disabled ? 'unchecked' : 'checked'}/>}
+          right={props => <Checkbox  status={$.session.messaging_config.is_comments_disabled ? 'unchecked' : 'checked'}/>}
           onPress={on_press_is_comments_disabled}
         />
       </List.Section>
@@ -108,14 +103,14 @@ const Notificationscreen = function({navigation}) {
           title="Follower Requests"
           description="joesmoe requests to follow you."
           left={props => <List.Icon {...props} icon="account-plus" />}
-          right={props => <Checkbox  status={settings.is_follower_requests_disabled ? 'unchecked' : 'checked'}/>}
+          right={props => <Checkbox  status={$.session.messaging_config.is_follower_requests_disabled ? 'unchecked' : 'checked'}/>}
           onPress={on_press_is_follower_requests_disabled}
         />
         <List.Item
           title="Accepted Follow Requests"
           description="joesmoe accepted your follow request."
           left={props => <List.Icon {...props} icon="account-check" />}
-          right={props => <Checkbox  status={settings.is_accepted_follower_requests_disabled ? 'unchecked' : 'checked'}/>}
+          right={props => <Checkbox  status={$.session.messaging_config.is_accepted_follower_requests_disabled ? 'unchecked' : 'checked'}/>}
           onPress={on_press_accepted_follower_requests_disabled}
           />
         </List.Section>

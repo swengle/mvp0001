@@ -75,8 +75,13 @@ const CameraScreen = function({ navigation, route }) {
         height = 1350;
       }
       $.editor.pic = await ImageManipulator.manipulateAsync(pic.uri, [{resize: {height: height, width: source === "new_pic" ? 1080 : 110}}], {compress: source === "new_pic" ? 0.9 : 1});
-      $.uploader = new Uploader();
-      $.uploader.upload(snap_current_user.id + (source === "new_pic" ? "/images" : "/profile_images"), $.editor.pic.uri, "image");
+      let uploader;
+      if (source === "new_pic") {
+        uploader =$.uploader = new Uploader(); 
+      } else {
+        uploader = $.profile_image_uploader;
+      }
+      uploader.upload(snap_current_user.id + (source === "new_pic" ? "/images" : "/profile_images"), $.editor.pic.uri, "image");
       if (flashMode === FlashMode.off && source === "new_pic") {
         ref_camera.current.resumePreview();
       } else {
@@ -132,8 +137,13 @@ const CameraScreen = function({ navigation, route }) {
       }
 
       $.editor.pic = await ImageManipulator.manipulateAsync(asset.uri, ops, {compress: source === "new_pic" ? 0.9 : 1});
-      $.uploader = new Uploader();
-      $.uploader.upload(snap_current_user.id + (source === "new_pic" ? "/images" : "/profile_images"), $.editor.pic.uri, "image");
+      let uploader;
+      if (source === "new_pic") {
+        uploader =$.uploader = new Uploader(); 
+      } else {
+        uploader = $.profile_image_uploader;
+      }
+      uploader.upload(snap_current_user.id + (source === "new_pic" ? "/images" : "/profile_images"), $.editor.pic.uri, "image");
     } else {
       source === "new_pic" && navigation.goBack();
     }

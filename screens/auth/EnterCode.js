@@ -4,6 +4,7 @@ import _ from "underscore";
 import { useState } from "react";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Platform, KeyboardAvoidingView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { getFunctions, httpsCallable } from "firebase/functions";
 import {
   CodeField,
   Cursor,
@@ -14,18 +15,22 @@ import { useToast } from "react-native-toast-notifications";
 import { Text, useTheme } from 'react-native-paper';
 import { getAuth, signInWithCustomToken } from "firebase/auth";
 const CELL_COUNT = 5;
+import { useSnapshot } from "valtio";
+
 const auth = getAuth();
+const functions = getFunctions();
+const f_get_auth_token = httpsCallable(functions, 'get_auth_token');
 
 const EnterCode = function({route, navigation}) {
+  const snap_auth = useSnapshot($.auth);
   const { colors } = useTheme();
-  const [isBusy, setIsBusy] = useState(false);
+  const [is_busy, set_is_busy] = useState(false);
   const toast = useToast();
-  const { phone } = route.params;
-  const [value, setValue] = useState('');
+  const [value, set_value] = useState('');
   const ref = useBlurOnFulfill({value, cellCount: CELL_COUNT});
   const [props, getCellOnLayoutHandler] = useClearByFocusCell({
     value,
-    setValue,
+    set_value,
   });
   
   const on_press_not_my_number = function() {
@@ -38,20 +43,25 @@ const EnterCode = function({route, navigation}) {
   
   const on_blur = async function() {
     try {
-      setIsBusy(true);
-      const data = (await $.axios_api.post("/auth_codes/validate", {device_id: $.app.device_id, phone: phone, auth_code: value})).data;
-      if (!data.is_success) {
-        $.display_error(toast, new Error("Invalid code. " + data.attempts_left + " attempt" + (data.attempts_left === 1 ? "" : "s") + " left."));
+      set_is_busy(true);
+      if (value === $.auth.pin.code) {
+        const response = await f_get_auth_token({ phone: $.auth.pin.phone });
+        await signInWithCustomToken(auth, response.data.token);
+        delete $.auth.pin;
+      } else {
+        $.auth.pin.attempts_left--;
+        if ($.auth.pin.attempts_left === 0) {
+          $.display_error(toast, new Error("Invalid code. " + $.auth.pin.attempts_left + " attempt" + ($.auth.pin.attempts_left === 1 ? "" : "s") + " left."));
+          delete $.auth.pin;
+          navigation.goBack();
+        }
       }
-      await signInWithCustomToken(auth, data.token);
     } catch (e) {
+      console.log(e);
       $.display_error(toast, new Error("Unable to validate code."));
-      if (e.status === 404) {
-        navigation.goBack();
-      }
-      setValue("");
+      set_value("");
     } finally {
-      setIsBusy(false);
+      set_is_busy(false);
       ref.current && ref.current.focus();
     }
   };
@@ -60,7 +70,7 @@ const EnterCode = function({route, navigation}) {
     <SafeAreaView style ={{flex: 1}}>
       <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
         <ScrollView keyboardShouldPersistTaps='always' style={{flex: 1}} contentContainerStyle={{padding: 10, flex: 1}} >
-          <Text style={{fontSize: 20, marginTop: 10, marginBottom: 10, fontWeight: "bold", textAlign: "center"}}>Enter the code we sent to {phone}</Text>
+          <Text style={{fontSize: 20, marginTop: 10, marginBottom: 10, fontWeight: "bold", textAlign: "center"}}>Enter the code we sent to {snap_auth.phone}</Text>
           <View style={{marginLeft: 40, marginRight: 40}}>
             <CodeField
               autoFocus={true}
@@ -69,7 +79,7 @@ const EnterCode = function({route, navigation}) {
               {...props}
               // Use `caretHidden={false}` when users can't paste a text value, because context menu doesn't appear
               value={value}
-              onChangeText={setValue}
+              onChangeText={set_value}
               cellCount={CELL_COUNT}
               rootStyle={styles.codeFieldRoot}
               keyboardType="number-pad"

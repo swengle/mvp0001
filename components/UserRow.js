@@ -1,12 +1,14 @@
 "use strict";
 import $ from "../setup";
-import _ from "underscore";
 import { useState } from "react";
 import { useToast } from "react-native-toast-notifications";
 import { View } from 'react-native';
 import { Avatar, Button, HelperText, Text, useTheme } from "react-native-paper";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { getHex } from "pastel-color";
+import firestore from "../firestore/firestore";
+import { Timestamp } from "firebase/firestore";
+import { useSnapshot } from "valtio";
 
 const get_relationship_action = function(status) {
   if (status === "none" || status === "unfollow") {
@@ -16,14 +18,6 @@ const get_relationship_action = function(status) {
     } else if (status === "block") {
       return "unblock";
     }
-};
-
-const get_intended_relationship_status = function(status, is_account_public) {
-  if (status === "none" || status === "unfollow") {
-    return is_account_public ? "follow" : "request";
-  } else if (status === "follow" || status === "request" || status === "block") {
-    return "none";
-  }
 };
 
 const get_relationship_button_text = function(status) {
@@ -39,101 +33,85 @@ const get_relationship_button_text = function(status) {
   return status;
 };
 
-const UserRow = function({navigation, user_id, contact, onRefreshNeeded}) {
-  const user = $.cache.get(user_id);
-  const snap_user = $.cache.get_snap(user_id);
-  const current_user = $.get_current_user();
+const UserRow = function({row_id, navigation, onRefreshNeeded}) {
+  const row_snap = useSnapshot($.contacts_rows_by_id[row_id]);
+  const row = $.contacts_rows_by_id[row_id];
   const toast = useToast();
   const { colors } = useTheme();
-  const [is_busy, set_is_busy] = useState();
+  const [busy_button_text, set_busy_button_text] = useState();
   
   const on_press_relationship = async function() {
-    const original = user.outgoing_relationship;
     try {
-      set_is_busy(true);
-      user.outgoing_relationship = get_intended_relationship_status(original, snap_user.is_account_public);
-      const action = get_relationship_action(original);
-
+      const action = get_relationship_action(row.relationship.status);
       if (action === "follow") {
-        if (snap_user.is_account_public) {
-          user.follow_by_count++;
-          current_user.follow_count++;
-        } else {
-          user.request_by_count++;
-          current_user.request_count++;
-        }
-      } else if (action === "unfollow") {
-        if (original === "follow") {
-          user.follow_by_count--;
-          current_user.follow_count--;
-        } else {
-          user.request_by_count--;
-          current_user.request_count--;
-        }
-      } else if (action === "unblock") {
-        user.block_by_count--;
-        current_user.block_count--;
+        set_busy_button_text(row.user.is_account_public ? "Following" : "Requested");
+      } else if (action === "unfollow" || action === "unblock") {
+        set_busy_button_text("Follow");
+      } else if (action === "block") {
+        set_busy_button_text("Unblock");
       }
-      const response = (await $.axios_api.post("/users/" + user.id + "/relationship", {action: action})).data;
-      user.outgoing_relationship = response.outgoing_status;
+      await firestore.update_relationship({
+        uid: $.session.uid,
+        user : row.user,
+        action: action
+      });
     } catch (e) {
-      user.outgoing_relationship = original;
+      set_busy_button_text(null);
       $.display_error(toast, new Error("Failed to update relationship."));
-    } finally {
-      set_is_busy(false);
     }
   };
 
   const on_press_invite = async function() {
-    const original = contact.is_invited;
     try {
-      set_is_busy(true);
-      _.extend(contact, {is_invited: new Date().toISOString()});
-      onRefreshNeeded();
-      const response = (await $.axios_api.post("/invite-contacts", {phones: contact.parsed_number, name: contact.contact_name})).data;
-      _.extend(contact, response);
-      onRefreshNeeded();
+      row.invited_at = Timestamp.now();
+      await firestore.invite_contact({uid: $.session.uid, phones: row.parsed_number, name: row.contact_name});
     } catch (e) {
-      _.extend(contact, {is_invited: original});
-      onRefreshNeeded();
+      delete row.invited_at;
       $.display_error(toast, new Error("Failed to send invite."));
-    } finally {
-      set_is_busy(false);
     }
   };
   
-  if (user) {
+  if (row_snap.user) {
     return (
       <View style={{flexDirection: "row", alignItems: "center", padding: 10}}>
         <View style={{flex: 7, flexDirection: "row", alignItems: "center"}}>
-          <Avatar.Image size={64} source={{uri: snap_user.profile_image_url}} style={{marginRight: 10}}/>
+          <Avatar.Image size={64} source={{uri: row_snap.user.profile_image_url}} style={{marginRight: 10}}/>
           <View>
-            <Text variant="titleSmall">{snap_user.username}</Text>
-            {snap_user.name &&  <Text variant="bodySmall">{snap_user.name}</Text>}
-            <Text variant="labelMedium" style={{color: colors.outline}}><MaterialCommunityIcons name="account-box-outline" size={14} />{contact.contact_name}</Text>
+            <Text variant="titleSmall">{row_snap.user.username}</Text>
+            {row_snap.user.name &&  <Text variant="bodySmall">{row_snap.user.name}</Text>}
+            <Text variant="labelMedium" style={{color: colors.outline}}><MaterialCommunityIcons name="account-box-outline" size={14} />{row.contact_name}</Text>
           </View>
         </View>
-        <View style={{flex: 3}}>
-          <Button mode="contained" compact={true} onPress={on_press_relationship}>{get_relationship_button_text(snap_user.outgoing_relationship)}</Button>
-        </View>
+        {row_snap.relationship && (
+          <View style={{flex: 3}}>
+            <Button mode="contained" compact={true} onPress={on_press_relationship}>{busy_button_text ? busy_button_text : get_relationship_button_text(row_snap.relationship.status)}</Button>
+          </View>
+        )}
       </View>
     );
   }
   
-  let is_invited = (contact.invited_at && Date.now() - new Date(contact.invited_at).getTime() < (30 * 24 * 60 * 60 * 1000)) ? true : false; 
+  let is_invited, invited_at;
+  if (row_snap.invited_at) {
+    invited_at = row_snap.invited_at.toDate ? row_snap.invited_at.toDate() : new Date(row_snap.invited_at);
+    // 30 days
+    is_invited = (invited_at && (Date.now() - invited_at.getTime() < (30 * 24 * 60 * 60 * 1000))) ? true : false; 
+  }
   
   return (
     <View style={{flexDirection: "row", alignItems: "center", padding: 10}}>
       <View style={{flex: 7, flexDirection: "row", alignItems: "center"}}>
-        <Avatar.Image size={64} source={{uri: "https://ui-avatars.com/api/?name=" + contact.contact_name + "&size=110&length=2&rounded=true&color=ffffff&background=" + getHex(contact.contact_name).replace("#", "")}} style={{marginRight: 10}}/>
+        <Avatar.Image size={64} source={{uri: "https://ui-avatars.com/api/?name=" + row_snap.contact_name + "&size=110&length=2&rounded=true&color=ffffff&background=" + getHex(row_snap.contact_name).replace("#", "")}} style={{marginRight: 10}}/>
         <View style={{flex: 1}}>
-          <Text variant="titleSmall" style={{color: colors.outline}} numberOfLines={1}><MaterialCommunityIcons name="account-box-outline" size={14} />{contact.contact_name}</Text>
+          <Text variant="titleSmall" style={{color: colors.outline}} numberOfLines={1}><MaterialCommunityIcons name="account-box-outline" size={14} />{row_snap.contact_name}</Text>
         </View>
       </View>
-      <View style={{flex: 3}}>
-        <Button disabled={is_invited|| is_busy} mode="contained" compact={true} onPress={on_press_invite}>{is_invited ? "Invited" : "Invite"}</Button>
-        {contact.invited_at && (<HelperText style={{textAlign: "center"}}>{$.timeago.format(contact.invited_at)}</HelperText>)}
-      </View>
+      {!row_snap.uid && (
+        <View style={{flex: 3}}>
+          <Button disabled={is_invited || busy_button_text} mode="contained" compact={true} onPress={on_press_invite}>{busy_button_text ? busy_button_text : (is_invited ? "Invited" : "Invite")}</Button>
+          {row_snap.invited_at && (<HelperText style={{textAlign: "center"}}>{$.timeago.format(invited_at)}</HelperText>)}
+        </View>
+      )}
     </View>
   );
 };

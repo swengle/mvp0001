@@ -7,6 +7,7 @@ import { useSnapshot } from "valtio";
 import { subscribeKey } from 'valtio/utils';
 import { useToast } from "react-native-toast-notifications";
 import { SafeAreaView } from 'react-native-safe-area-context';
+import firestore from "../../firestore/firestore";
 
 const SIZE = 1080;
 const WINDOW_SIZE = 390;
@@ -50,8 +51,7 @@ const DetailsScreen = function({navigation, route}) {
   const save = async function(response) {
     set_is_saving_failed(false);
     try {
-      const data = (await $.axios_api.post("/posts", {image: response, emoji: snap_editor.emoji})).data;
-      $.get_current_user().current_post = data;
+      await firestore.save_post({uid: $.session.uid, image: response, emoji: snap_editor.emoji});
       navigation.navigate("StackTabs");
     } catch (e) {
       $.display_error(toast, new Error("Failed to save image."));

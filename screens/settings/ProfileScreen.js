@@ -11,6 +11,9 @@ import { ActivityIndicator, Button, HelperText, useTheme } from 'react-native-pa
 import { subscribeKey } from 'valtio/utils';
 import { useToast } from "react-native-toast-notifications";
 import { useSnapshot } from "valtio";
+import firestore from "../../firestore/firestore";
+import Uploader from "../../components/Uploader";
+
 const user_name_regex = /^[a-zA-Z0-9_][a-zA-Z0-9_.]*/;
 
 const get_diff_in_hours = function(start_date, end_date) {
@@ -19,11 +22,12 @@ const get_diff_in_hours = function(start_date, end_date) {
   return Math.round(Math.abs(end_date - start_date) / ms_in_hour);
 };
 
+$.profile_image_uploader = new Uploader();
+
 const ProfileScreen = function({navigation}) {
   const toast = useToast();
   const { colors } = useTheme();
-  const snap_uploader = useSnapshot($.uploader.state);
-  const current_user = $.get_current_user();
+  const snap_uploader = useSnapshot($.profile_image_uploader.state);
   const snap_current_user = $.get_snap_current_user();
   const [is_saving, set_is_saving] = useState(false);
   const [is_saving_error, set_is_saving_error] = useState(false);
@@ -38,12 +42,13 @@ const ProfileScreen = function({navigation}) {
   const [is_name_valid, set_is_name_valid] = useState(true);
   
   const save_user = async function(params) {
+    params.id = $.session.uid;
     try {
       set_is_saving(true);
-      const response_update = await $.axios_api.post("/users/me", params);
-      $.get_current_user().profile_image_url = response_update.data.profile_image_url;
+      await firestore.update_user(params);
       $.reset_editor();
     } catch (e) {
+      console.log(e);
       $.display_error(toast, new Error("Failed to update profile image."));
       set_is_saving_error(true);
     } finally {
@@ -52,7 +57,7 @@ const ProfileScreen = function({navigation}) {
   };
   
   useEffect(() => {
-    const unsubscribe = subscribeKey($.uploader.state, "response", async (response) => {
+    const unsubscribe = subscribeKey($.profile_image_uploader.state, "response", async (response) => {
       if (response) {
         await save_user({profile_image_url: response.secure_url});
       }
@@ -67,7 +72,6 @@ const ProfileScreen = function({navigation}) {
       set_is_dirty(false);
     }
   };
-  
 
   useEffect(() => {
     check_if_dirty();
@@ -84,7 +88,7 @@ const ProfileScreen = function({navigation}) {
   const retry = async function() {
     set_is_saving_error(false);
     if (!snap_uploader.response) {
-      $.uploader.retry(); 
+      $.profile_image_uploader.retry(); 
     } else {
       await save_user({profile_image_url: snap_uploader.response.secure_url});
     }
@@ -94,7 +98,9 @@ const ProfileScreen = function({navigation}) {
   
   const on_press_save = async function() {
     Keyboard.dismiss();
-    const params = {};
+    const params = {
+      id: $.session.uid
+    };
     if (name !== snap_current_user.name) {
       params.name = name;
     }
@@ -113,8 +119,7 @@ const ProfileScreen = function({navigation}) {
     try {
       set_is_saving_profile_error(false);
       set_is_saving_profile(true);
-      const response_update = await $.axios_api.post("/users/me", params);
-      _.extend(current_user, _.pick(response_update.data, "username", "name", "bio"));
+      await firestore.update_user(params);
       set_is_dirty(false);
     } catch (e) {
       $.display_error(toast, new Error("Failed to update user."));
@@ -151,12 +156,11 @@ const ProfileScreen = function({navigation}) {
   }
   
   let is_can_edit_username = false;
-  const last_update_at = new Date(snap_current_user.change_username_at);
+  const last_update_at = snap_current_user.change_username_at.toDate();
   const delta = get_diff_in_hours(new Date(), last_update_at);
   if (delta > (24 * 30)) {
     is_can_edit_username = true;
   }
-  
   
   let target_date = last_update_at;
   target_date.setDate(target_date.getDate() + 30);
