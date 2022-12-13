@@ -12,6 +12,8 @@ import { collection, getDocs, limit, query, startAfter, where, orderBy } from "f
 import { Appbar, Divider, Menu, Searchbar, TouchableRipple, useTheme } from "react-native-paper";
 import Post from "../../components/Post";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import useCachedData from "../../hooks/useCachedData";
+import { useSnapshot } from "valtio";
 
 const fetch_sizes_by_number_columns = {};
 fetch_sizes_by_number_columns[1] = 8;
@@ -24,9 +26,11 @@ const DiscoverScreen = function({navigation, route}) {
   const [number_columns, set_number_columns] = useState($.app.discovery_number_columns || 3);
   const [is_gridmenu_visible, set_is_gridmenu_visible] = useState(false);
   const [search_text, set_search_text] = useState("");
+  
+  const cached_data = useCachedData($);
+  const snap_cached_data = useSnapshot(cached_data);
 
   // common states for an infinite load page
-  const [data, set_data] = useState();
   const [cursor, set_cursor] = useState();
   const [is_refreshing, set_is_refreshing] = useState(false);
   const [is_refresh_error, set_is_refresh_error ] = useState(false);
@@ -60,9 +64,9 @@ const DiscoverScreen = function({navigation, route}) {
         rows.push(post.id);
       });
       if (cursor) {
-        set_data(data.concat(rows));
+        cached_data.data = cached_data.data.concat(rows);
       } else {
-        set_data(rows); 
+        cached_data.data = rows;
       }
       if (_.size(rows) === fetch_sizes_by_number_columns[number_columns]) {
         set_cursor(_.last(snap_posts.docs));
@@ -222,12 +226,12 @@ const DiscoverScreen = function({navigation, route}) {
           key={number_columns}
           style={{flex: 1}}
           //keyboardShouldPersistTaps="always"
-          data={data}
+          data={snap_cached_data.data}
           renderItem={render_post}
           keyExtractor = { item => item }
           ListHeaderComponent = <ListHeader is_error={is_refresh_error} on_press_retry={on_press_retry}/>
           ListFooterComponent = <ListFooter is_error={is_load_more_error} is_loading_more={is_loading_more} on_press_retry={on_press_retry}/>
-          ListEmptyComponent = <ListEmpty data={data} text="No posts found"/>
+          ListEmptyComponent = <ListEmpty data={snap_cached_data.data} text="No posts found"/>
           refreshControl={
             <RefreshControl
               refreshing={is_refreshing}
@@ -240,6 +244,7 @@ const DiscoverScreen = function({navigation, route}) {
           removeClippedSubviews={true}
           numColumns={number_columns}
           horizontal={false}
+          onEndReachedThreshold={0.5}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>

@@ -20,6 +20,8 @@ import SettingsScreen from "./settings/SettingsScreen";
 import ProfileScreen from "./settings/ProfileScreen";
 import NotificationsScreen from "./settings/NotificationsScreen";
 
+import PostScreen from "./post/PostScreen";
+
 import ContactsScreen from "./contacts/ContactsScreen";
 
 import EditorStack from "./EditorStack";
@@ -35,6 +37,7 @@ const HomeStack = function() {
       <HomeStackNavigator.Screen name="HomeScreen" component={HomeScreen} options={{headerShown: false}}/>
       <HomeStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
       <HomeStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
+      <HomeStackNavigator.Screen name="PostScreen" component={PostScreen} options={{headerShown: false}}/>
     </HomeStackNavigator.Navigator>
   );
 };
@@ -46,6 +49,7 @@ const DiscoverStack = function() {
       <DiscoverStackNavigator.Screen name="DiscoverScreen" component={DiscoverScreen} options={{headerShown: false}}/>
       <DiscoverStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
       <DiscoverStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
+      <DiscoverStackNavigator.Screen name="PostScreen" component={PostScreen} options={{headerShown: false}}/>
     </DiscoverStackNavigator.Navigator>
   );
 };
@@ -92,6 +96,7 @@ const UserStack = function() {
       <UserStackNavigator.Screen name="HistoryScreen" component={HistoryScreen} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="SettingsStack" component={SettingsStack} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="ContactsStack" component={ContactsStack} options={{headerShown: false}}/>
+      <UserStackNavigator.Screen name="PostScreen" component={PostScreen} options={{headerShown: false}}/>
     </UserStackNavigator.Navigator>
   );
 };
@@ -151,6 +156,7 @@ const StackTabs = function({ navigation }) {
 
 const MainStack = function() {
   const snap_current_user = $.get_snap_current_user();
+  console.log(snap_current_user);
   
   return (
     <Stack.Navigator screenOptions={{headerShown: false, ...TransitionPresets.ModalPresentationIOS}}>

@@ -12,13 +12,17 @@ import ListEmpty from "../../components/ListEmpty";
 import { collection, getDocs, limit, orderBy, query, startAfter, where } from "firebase/firestore";
 import { Appbar, useTheme } from "react-native-paper";
 import firestore from "../../firestore/firestore";
+import useCachedData from "../../hooks/useCachedData";
+import { useSnapshot } from "valtio";
 
 const FETCH_SIZE = 10;
 
 const UserListScreen = function({navigation, route}) {
   const { colors } = useTheme();
   
-  const [data, set_data] = useState();
+  const cached_data = useCachedData($);
+  const snap_cached_data = useSnapshot(cached_data);
+
   const [cursor, set_cursor] = useState();
   const [is_refreshing, set_is_refreshing] = useState(false);
   const [is_refresh_error, set_is_refresh_error ] = useState(false);
@@ -48,20 +52,20 @@ const UserListScreen = function({navigation, route}) {
       _.each(snap_relationship.docs, function(doc_relationship) {
         relationships.push(doc_relationship.data());
       });
-      const users = await firestore.load_users({
+      const user_ids = await firestore.load_users({
         ids: route.params.title === "Following" ? _.pluck(relationships, "uid") : _.pluck(relationships, "id")
       });
       
       if (_.size(relationships) === 0 && !cursor) {
-        set_data([]); 
+        cached_data.data = [];
       } else {
         if (cursor) {
-          set_data(data.concat(users));
+          cached_data.data = cached_data.data .concat(user_ids);
         } else {
-          set_data(users);
+          cached_data.data = user_ids;
         }
       }
-      if (_.size(users) === FETCH_SIZE) {
+      if (_.size(user_ids) === FETCH_SIZE) {
         set_cursor(_.last(snap_relationship.docs));
       } else {
         set_cursor(null);
@@ -111,12 +115,12 @@ const UserListScreen = function({navigation, route}) {
       <FlatList
         style={{flex: 1}}
         keyboardShouldPersistTaps="always"
-        data={data}
+        data={snap_cached_data.data}
         renderItem={render_user}
         keyExtractor = { item => item }
         ListHeaderComponent = <ListHeader is_error={is_refresh_error} on_press_retry={on_press_retry}/>
         ListFooterComponent = <ListFooter is_error={is_load_more_error} is_loading_more={is_loading_more} on_press_retry={on_press_retry}/>
-        ListEmptyComponent = <ListEmpty data={data} text="No users found"/>
+        ListEmptyComponent = <ListEmpty data={snap_cached_data.data} text="No users found"/>
         refreshControl={
           <RefreshControl
             refreshing={is_refreshing}

@@ -1,7 +1,8 @@
 "use strict";
 import { useState } from "react";
-import { Image, View } from 'react-native';
+import { View } from 'react-native';
 import { ActivityIndicator, useTheme } from "react-native-paper";
+import FastImage from 'react-native-fast-image';
 
 const SwengleImage = function({source, style}) {
   const { colors } = useTheme();
@@ -17,7 +18,7 @@ const SwengleImage = function({source, style}) {
   
   return (
     <View style={{backgroundColor: colors.surfaceDisabled, alignItems: "center",justifyContent: "center"}}>
-      <Image source={source} style={[style, {opacity: is_loaded ? 1 : 0}]} onLoadEnd={on_load_end} onLoadStart={on_load_start}/>
+      <FastImage source={source} style={[style, {opacity: is_loaded ? 1 : 0}]} onLoadEnd={on_load_end} onLoadStart={on_load_start}/>
       {!is_loaded && <ActivityIndicator style={{position: "absolute"}}/>}
     </View>    
   );

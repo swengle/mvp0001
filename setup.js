@@ -65,45 +65,6 @@ $.openAppSettings = () => {
 };
 
 $.axios = axios;
-
-$.axios_api = axios.create({
-  baseURL: $.config.app.api_url
-});
-
-$.axios_api.interceptors.request.use(
-  async function(config) {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (user) {
-        const id_token = await user.getIdToken();
-        config.headers.Authorization = "Bearer " + id_token;
-      }
-      return config;
-    },
-    function(error) {
-      return Promise.reject(error);
-    }
-);
-
-$.axios_api.interceptors.response.use(
-  res => {
-    return res.data;
-  },
-  async err => {
-    console.log(err);
-    let e;
-    if (err.response && err.response.data && err.response.data.data && err.response.data.data.message) {
-      e = new Error(err.response.data.data.message);
-      e.status = err.response.status;
-    }
-    else {
-      e = new Error("Unexpected Error");
-      e.status = err.response.status || 500;
-    }
-    throw e;
-  }
-);
-
 $.firebase = initializeApp($.config.firebase);
 $.db = getFirestore($.firebase);
 firestore.set_$($);
@@ -118,16 +79,18 @@ $.auth = proxy({
 $.app = proxy({});
 $.editor = proxy({});
 $.cache = new Cache();
+$.data_cache = new Cache({});
 
 $.get_snap_current_user = function() {
-  if ($.session) {
-    return $.cache.get_snap($.session.uid);
+  if ($.session && $.session.uid) {
+    const snap_cache = $.cache.get_snap();
+    return snap_cache[$.session.uid];
   }
   return;
 };
 
 $.get_current_user = function() {
-    if ($.session) {
+    if ($.session && $.session.uid) {
     return $.cache.get($.session.uid);
   }
   return;

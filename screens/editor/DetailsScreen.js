@@ -106,9 +106,9 @@ const DetailsScreen = function({navigation, route}) {
           </View>
           
           <View style={{flexDirection: "row", alignItems: "center", justifyContent: "center", position: "absolute", left: 0, bottom: 48, width: width}}>
-            {(!is_saving_failed && (is_saving || is_retry) && !snap_uploader.hasErrored && snap_uploader.isUploading) && <ActivityIndicator style={{marginTop: 40}} animating={true}/>}
+            {(!is_saving_failed && (is_saving || is_retry) && !snap_uploader.hasErrored) && <ActivityIndicator style={{marginTop: 40}} animating={true}/>}
             
-            {(!is_saving_failed && !is_saving && !snap_uploader.isUploading && !is_retry) && <Button style={{marginTop: 40}} mode="contained" onPress={on_press_send}>Send</Button>}
+            {(!is_saving_failed && !is_saving && !is_retry) && <Button style={{marginTop: 40}} mode="contained" onPress={on_press_send}>Send</Button>}
             
             {(is_saving_failed || ((is_saving || is_retry) && snap_uploader.hasErrored)) && (<View><Button style={{marginTop: 40}} mode="contained" onPress={on_press_retry}>Retry</Button><HelperText type="error">Something went wrong.</HelperText></View>)}
           </View>

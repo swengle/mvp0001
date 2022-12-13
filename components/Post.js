@@ -1,13 +1,12 @@
 "use strict";
 import $ from "../setup";
 import { Fragment, useEffect, useState } from "react";
-import { StyleSheet, TouchableOpacity, useWindowDimensions, View } from 'react-native';
-import SwengleImage from "./SwengleImage";
+import { StyleSheet, useWindowDimensions, View, TouchableOpacity } from 'react-native';
 import { Avatar, Text, useTheme } from "react-native-paper";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import FastImage from 'react-native-fast-image';
 
-
-const LiveTimeAgo = function({ date, variant, style }) {
+const LiveTimeAgo = function({ date, style }) {
   const [time, set_time] = useState(Date.now());
   
   useEffect(() => {
@@ -17,19 +16,23 @@ const LiveTimeAgo = function({ date, variant, style }) {
     };
   }, []);
 
-  return <Text variant="labelSmall" style={[style, styles.shadow_text]}>{$.timeago.format(date)}</Text>;
+  return <Text style={style}>{$.timeago.format(date)}</Text>;
 };
 
-const Post = function({id, navigation, number_columns}) {
+const Post = function({id, navigation, number_columns, is_history_screen}) {
+  const [is_image_loaded, set_is_image_loaded] = useState(false);
   const {width} = useWindowDimensions();
   const { colors } = useTheme();
-  const snap_post = $.cache.get_snap(id);
+  
+  const cache = $.cache.get_snap();
+  const snap_post = cache[id];
+  
   if (!snap_post) {
     return null;
   }
   
-  const snap_user = $.cache.get_snap(snap_post.uid);
-  if (!snap_user) {
+  const snap_user = cache[snap_post.uid];
+  if (!snap_user || snap_post.is_deleted) { // can't check this earlier to keep hook counts the same
     return null;
   }
   
@@ -48,97 +51,122 @@ const Post = function({id, navigation, number_columns}) {
   
   let final_height = final_width * (snap_post.image_urls["1080"].height/snap_post.image_urls["1080"].width);
   
+  const on_image_load = function() {
+    set_is_image_loaded(true);
+  };
+  
+  const on_press_post = function() {
+    navigation.push("PostScreen", {id: id});
+  };
+  
   return (
     <View style={{width: final_width, height: final_height}}>
-      <SwengleImage source={{uri:snap_post.image_urls["1080"].url}} style={{width: final_width, height: final_height, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.background}}/>
-      {number_columns === 1 && (
-        <Fragment>
-          <View style={{position: "absolute", left: 10, top: 10}}>
-            <LiveTimeAgo variant="labelSmall" date={snap_post.created_at.toDate()}/>
-          </View>
-          <View style={{position: "absolute", left: 10, bottom: 10}}>
-            <TouchableOpacity onPress={on_press_user} activeOpacity={0.8}>
-              <View style={{flexDirection: "row", alignItems: "center"}}>
-                <View elevation={5} style={[styles.shadow, {borderWidth: 1, borderColor: "white", marginRight: 4, borderRadius: 20}]}>
-                  <Avatar.Image size={40} source={{uri: snap_user.profile_image_url}} />
-                </View>
-                <Text variant="titleMedium" style={styles.shadow_text}>{snap_user.username}</Text>
+      <FastImage source={{uri:snap_post.image_urls["1080"].url}} style={{width: final_width, height: final_height, borderWidth: number_columns === 1 ? 1 : StyleSheet.hairlineWidth, borderColor: colors.background}} onLoad={on_image_load}/>
+      <View style={{backgroundColor: "rgba(0, 0, 0, 0.2)", position: "absolute", width: final_width, height: final_height}}>
+        {is_image_loaded && number_columns === 1 && (
+          <Fragment>
+            <View style={{marginLeft: 10, marginTop: 10}}>
+              <LiveTimeAgo style={[styles.image_text_1, styles.image_text]} date={snap_post.created_at.toDate()}/>
+            </View>
+            <TouchableOpacity style={{flex: 1}} onPress={on_press_post} activeOpacity={1}/>
+            <View style={{flexDirection: "row", margin: 8}}>
+              <View style={{flex: 1, justifyContent: "flex-end", marginRight: 4}}>
+                {!is_history_screen && (
+                  <TouchableOpacity onPress={on_press_user} activeOpacity={0.8}>
+                    <View style={{flexDirection: "row", alignItems: "center"}}>
+                      <View style={[{borderWidth: 1, borderColor: "white", marginRight: 4, borderRadius: 20}]}>
+                        <Avatar.Image size={40} source={{uri: snap_user.profile_image_url}} />
+                      </View>
+                      <Text style={[styles.image_text_1_username, styles.image_text]}>{snap_user.username}</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                {true && <Text numberOfLines={3} style={[styles.image_text_1, styles.image_text, {width: "100%", marginTop: 4}]}>This is some text to go with this thing! This is some text to go with this thing! This is some text to go</Text>}
               </View>
-            </TouchableOpacity>
-            {snap_post.caption && <Text variant="labelMedium" numberOfLines={3} style={[{marginRight: 64, marginTop: 4}, styles.shadow_text]}>This is some text to go with this thing! This is some text to go with this thing! This is some text to go</Text>}
-          </View>
-          <View style={{position: "absolute", right: 10, bottom: 10}}>
-              <TouchableOpacity onPress={on_press_user} style={{alignItems: "center"}} activeOpacity={0.8}>
-                <MaterialCommunityIcons name={"heart"} color="white" size={32} style={[styles.shadow_text]}/>
-                <Text variant="labelSmall" style={styles.shadow_text}>677.3K</Text>
+              <View>
+                <TouchableOpacity onPress={on_press_user} style={{alignItems: "center"}} activeOpacity={0.8}>
+                  <MaterialCommunityIcons name={"heart"} color="white" size={32} style={[styles.image_text]}/>
+                  <Text style={[styles.image_text, styles.image_text_actions_1]}>677.3K</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={on_press_user} style={{marginTop: 8, alignItems: "center"}} activeOpacity={0.8}>
+                  <MaterialCommunityIcons name={"comment"} color="white" size={32} style={[styles.image_text]}/>
+                  <Text style={[styles.image_text, styles.image_text_actions_1]}>23.1K</Text>
+                </TouchableOpacity>
+              </View>
+              
+            </View>
+          </Fragment>
+        )}
+        {is_image_loaded && number_columns === 2 && (
+          <Fragment>
+            <View style={{marginLeft: 7, marginTop: 7}}>
+              <LiveTimeAgo style={[styles.image_text_2, styles.image_text]} date={snap_post.created_at.toDate()}/>
+            </View>
+            <TouchableOpacity style={{flex: 1}} onPress={on_press_post} activeOpacity={1}/>
+            {!is_history_screen && (
+              <TouchableOpacity onPress={on_press_user} activeOpacity={0.8} style={{padding: 7}}>
+                <View style={{flexDirection: "row", alignItems: "center"}}>
+                  <View elevation={5} style={[{borderWidth: 1, borderColor: "white", marginRight: 3, borderRadius: 15}]}>
+                    <Avatar.Image size={30} source={{uri: snap_user.profile_image_url}} />
+                  </View>
+                  <Text style={[styles.image_text_2, styles.image_text]}>{snap_user.username}</Text>
+                </View>
               </TouchableOpacity>
-              <TouchableOpacity onPress={on_press_user} style={{marginTop: 8, alignItems: "center"}} activeOpacity={0.8}>
-                <MaterialCommunityIcons name={"comment"} color="white" size={32} style={[styles.shadow_text]}/>
-                <Text variant="labelSmall" style={styles.shadow_text}>23.1K</Text>
+            )}
+          </Fragment>
+        )}
+        {is_image_loaded && number_columns === 3 && (
+          <Fragment>
+            <View style={{marginLeft: 6, marginTop: 6}}>
+              <LiveTimeAgo style={[styles.image_text_3, styles.image_text]} date={snap_post.created_at.toDate()}/>
+            </View>
+            <TouchableOpacity style={{flex: 1}} onPress={on_press_post} activeOpacity={1}/>
+            {!is_history_screen && (
+              <TouchableOpacity onPress={on_press_user} activeOpacity={0.8} style={{padding: 5}}>
+                <Text style={[styles.image_text_3, styles.image_text]}>{snap_user.username}</Text>
               </TouchableOpacity>
-          </View>
-        </Fragment>
-      )}
-      {number_columns === 2 && (
-        <Fragment>
-           <View style={{position: "absolute", left: 7, top: 7}}>
-            <LiveTimeAgo variant="labelSmall" date={snap_post.created_at.toDate()}/>
-          </View>
-          <View style={{position: "absolute", left: 7, bottom: 7}}>
-            <TouchableOpacity onPress={on_press_user} activeOpacity={0.8}>
-              <View style={{flexDirection: "row", alignItems: "center"}}>
-                <View elevation={5} style={[styles.shadow, {borderWidth: 1, borderColor: "white", marginRight: 3, borderRadius: 10}]}>
-                  <Avatar.Image size={20} source={{uri: snap_user.profile_image_url}} />
-                </View>
-                <Text variant="labelMedium" style={styles.shadow_text}>{snap_user.username}</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </Fragment>
-      )}
-      {(number_columns === 3) && (
-        <Fragment>
-          <View style={{position: "absolute", left: 5, top: 5}}>
-            <LiveTimeAgo variant="labelSmall" date={snap_post.created_at.toDate()}/>
-          </View>
-          <View style={{position: "absolute", left: 5, bottom: 5}}>
-            <TouchableOpacity onPress={on_press_user} style={{flexDirection: "row", alignItems: "center"}} activeOpacity={0.8}>
-              <View style={{flexDirection: "row", alignItems: "center"}}>
-                <View elevation={5} style={[styles.shadow, {borderWidth: 1, borderColor: "white", marginRight: 2, borderRadius: 10}]}>
-                  <Avatar.Image size={20} source={{uri: snap_user.profile_image_url}} />
-                </View>
-              </View>
-              <Text variant="labelSmall" style={styles.shadow_text}>{snap_user.username}</Text>
-            </TouchableOpacity>
-          </View>
-        </Fragment>
-      )}
-      {(number_columns === 4) && (
-        <Fragment>
-           <View style={{position: "absolute", left: 3, bottom: 3}}>
-            <LiveTimeAgo variant="labelSmall" style={{fontSize: 10}} date={snap_post.created_at.toDate()}/>
-          </View>
-        </Fragment>
-      )}
+            )}
+          </Fragment>
+        )}
+        {is_image_loaded && number_columns === 4 && (
+          <Fragment>
+            <View style={{marginLeft: 5, marginTop: 5}}>
+              <LiveTimeAgo style={[styles.image_text_4, styles.image_text]} date={snap_post.created_at.toDate()}/>
+            </View>
+            <TouchableOpacity style={{flex: 1}} onPress={on_press_post} activeOpacity={1}/>
+            {!is_history_screen && (
+              <TouchableOpacity onPress={on_press_user} activeOpacity={0.8} style={{padding: 5}}>
+                <Text style={[styles.image_text_4, styles.image_text]}>{snap_user.username}</Text>
+              </TouchableOpacity>
+            )}
+          </Fragment>
+        )}
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  shadow_text: {
-    color: "white", 
-    textShadowColor: 'rgba(0, 0, 0, 0.8)', 
-    textShadowOffset: {width: -1, height: 1}, 
-    textShadowRadius: 1
+  image_text: {
+    color: "white"
   },
-  shadow: {
-    shadowColor: "#000000",
-    shadowOpacity: 0.8,
-    shadowRadius: 1,
-    shadowOffset: {
-      width: -1,
-      height: 1
-    }
+  image_text_4: {
+    fontSize: 9
+  },
+  image_text_3: {
+    fontSize: 11
+  },
+  image_text_2: {
+    fontSize: 13
+  },
+  image_text_1: {
+    fontSize: 14
+  },
+  image_text_1_username: {
+    fontSize: 15
+  },
+  image_text_actions_1: {
+    fontSize: 10
   }
 });
 

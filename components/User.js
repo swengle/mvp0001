@@ -36,8 +36,10 @@ const User = function({uid, row_id, navigation}) {
   const { colors } = useTheme();
   const toast = useToast();
   const [busy_button_text, set_busy_button_text] = useState();
+  
+  const cache = $.cache.get_snap();
+  const snap_user = cache[uid];
   const user = $.cache.get(uid);
-  const snap_user = $.cache.get_snap(uid);
   
   const on_press_relationship = async function() {
     try {
@@ -65,6 +67,7 @@ const User = function({uid, row_id, navigation}) {
   const on_press_user = function() {
     navigation.push("UserScreen", {uid: uid});
   };
+  
 
   return (
     <View style={{flexDirection: "row", alignItems: "center", padding: 10}}>

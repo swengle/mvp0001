@@ -66,7 +66,7 @@ const firestore = {
         user.outgoing_status = relationship_by_uid[user.id] ? relationship_by_uid[user.id].status : "none";
         $.cache.set(user);
       });
-
+      
       if (_.size(current_post_ids)) {
         const chunks_post_ids = _.chunk(current_post_ids, 10);
         await Promise.all(chunks_post_ids.map(async (chunk_post_ids) => {
@@ -77,8 +77,6 @@ const firestore = {
           });
         }));
       }
-
-
     }));
     return uids;
   },
@@ -201,8 +199,8 @@ const firestore = {
             if (params.action === "approve") {
               current_user_update.follow_by_count = increment(1);
               user_update.follow_count = increment(1);
-              _.isNumber(current_user_update.follow_by_count) ? current_user.follow_by_count++ : current_user.follow_by_count = 1;
-              _.isNumber(user_update.follow_count) ? user.follow_count++ : current_user.follow_count = 1;
+              _.isNumber(current_user_update.follow_by_count) ? ++current_user.follow_by_count : current_user.follow_by_count = 1;
+              _.isNumber(user_update.follow_count) ? ++user.follow_count : current_user.follow_count = 1;
             }
             await transaction.update(current_user_ref, current_user_update);
             await transaction.update(user_ref, user_update);
@@ -239,22 +237,22 @@ const firestore = {
           const current_user_update = { updated_at: Timestamp.now() };
           if (user.is_account_public) {
             current_user_update.follow_count = increment(1);
-            _.isNumber(current_user.follow_count) ? current_user.follow_count++ : current_user.follow_count = 0;
+            _.isNumber(current_user.follow_count) ? ++current_user.follow_count : current_user.follow_count = 0;
           }
           else {
             current_user_update.request_count = increment(1);
-            _.isNumber(current_user.request_count) ? current_user.request_count++ : current_user.request_count = 0;
+            _.isNumber(current_user.request_count) ? ++current_user.request_count : current_user.request_count = 0;
           }
           
           await transaction.update(current_user_ref, current_user_update);
           const user_update = { updated_at: Timestamp.now() };
           if (user.is_account_public) {
             user_update.follow_by_count = increment(1);
-            _.isNumber(user.follow_by_count) ? user.follow_by_count++ : user.follow_by_count = 0;
+            _.isNumber(user.follow_by_count) ? ++user.follow_by_count : user.follow_by_count = 0;
           }
           else {
             user_update.request_by_count = increment(1);
-            _.isNumber(user.request_by_count) ? user.request_by_count++ : user.request_by_count = 0;
+            _.isNumber(user.request_by_count) ? ++user.request_by_count : user.request_by_count = 0;
           }
           await transaction.update(user_ref, user_update);
         }
@@ -367,6 +365,10 @@ const firestore = {
     return result;
   },
   save_post: async function(params) {
+    const current_user = $.get_current_user();
+    if (!current_user) {
+      return;
+    }
     const url_parts = params.image.url.split("/upload");
     const url = url_parts[0] + "/upload/c_scale,g_north_east,l_misc:circle_r39zfi.png,w_" + circle_size + ",h_" + circle_size + ",x_" + margin_circle_right + ",y_" + margin_circle_top + "/c_scale,g_north_east,l_emojis:" + params.emoji.id + ".png,w_" + icon_size + ",h_" + icon_size + ",x_" + margin_icon_right + ",y_" + margin_icon_top + url_parts[1];
     const now = Timestamp.now();
@@ -383,7 +385,7 @@ const firestore = {
     };
 
     const new_post_ref = doc(db, "post", new_post.id);
-    const current_user_ref = doc(db, "user", params.uid);
+    const current_user_ref = doc(db, "user", current_user.id);
     await runTransaction(db, async (transaction) => {
       await transaction.set(new_post_ref, new_post);
       await transaction.update(current_user_ref, {
@@ -393,18 +395,52 @@ const firestore = {
     });
 
     $.cache.set(new_post);
-    const current_user = $.get_current_user();
     _.extend(current_user, {
-      post_count: _.isNumber(current_user.post_count) ? current_user.post_count++ : 1,
+      post_count: _.isNumber(current_user.post_count) ? ++current_user.post_count : 1,
       current_post_id: new_post.id
     });
     
-    const history = $.cache.get("history");
+    const history = $.data_cache.get("history");
     if (history) {
       history.data.unshift(new_post.id);
     }
     
     return new_post;
+  },
+  delete_post: async function(params) {
+    const current_user = $.get_current_user();
+    if (!current_user) {
+      return;
+    }
+    const post_ref = doc(db, "post", params.id);
+    const current_user_ref = doc(db, "user", current_user.id);
+    
+    const user_update = {
+      post_count: increment(-1)
+    };
+    
+    if (current_user.current_post_id === params.id) {
+      user_update.current_post_id = null;
+    }
+    
+    await runTransaction(db, async (transaction) => {
+      await transaction.delete(post_ref);
+      await transaction.update(current_user_ref, user_update);
+    });
+
+    // TODO ways to make this a lot faster (:-) store ids in a map)....
+    _.each($.data_cache.data, function(value) {
+      value.data = _.reject(value.data, function(id) {
+        return id === params.id;
+      });
+    });
+    $.cache.unset(params.id);
+    _.isNumber(current_user.post_count) ? --current_user.post_count : current_user.post_count = 0;
+    if (current_user.current_post_id === params.id) {
+      current_user.current_post_id = null;
+    }
+    
+    return;
   }
 };
 

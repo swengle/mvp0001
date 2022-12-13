@@ -12,7 +12,8 @@ import { collection, getDocs, limit, query, startAfter, where, orderBy } from "f
 import { Appbar, Divider, Menu, TouchableRipple, useTheme } from "react-native-paper";
 import Post from "../../components/Post";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { proxy, useSnapshot } from "valtio";
+import { useSnapshot } from "valtio";
+import useCachedData from "../../hooks/useCachedData";
 
 const fetch_sizes_by_number_columns = {};
 fetch_sizes_by_number_columns[1] = 8;
@@ -25,8 +26,7 @@ const HistoryScreen = function({navigation, route}) {
   const [number_columns, set_number_columns] = useState($.app.history_number_columns || 3);
   const [is_gridmenu_visible, set_is_gridmenu_visible] = useState(false);
   
-  const [history] = useState(proxy({id: "history", data: null}));
-  $.cache.set(history);
+  const history = useCachedData($, "history");
   const snap_history = useSnapshot(history);
   
   // common states for an infinite load page
@@ -103,7 +103,7 @@ const HistoryScreen = function({navigation, route}) {
   };
   
   const render_post = function(row) {
-    return <Post navigation={navigation} id={row.item}  number_columns={number_columns}/>;
+    return <Post navigation={navigation} id={row.item} number_columns={number_columns} is_history_screen={true}/>;
   };
   
   const on_dismiss_gridmenu = function() {
@@ -242,6 +242,7 @@ const HistoryScreen = function({navigation, route}) {
         removeClippedSubviews={true}
         numColumns={number_columns}
         horizontal={false}
+        onEndReachedThreshold={0.5}
       />
     </SafeAreaView>
   );

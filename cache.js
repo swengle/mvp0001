@@ -17,11 +17,12 @@ class Cache {
     }
   }
   
-  get_snap(id) {
-    if (!id) {
-      return useSnapshot(this.data);
-    }
-    return useSnapshot(this.data[id]);
+  unset(id) {
+    delete this.data[_.isObject(id) ? id.id : id];
+  }
+  
+  get_snap() {
+    return useSnapshot(this.data);
   }
   
   get(id) {

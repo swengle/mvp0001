@@ -46,7 +46,10 @@ const User = function({navigation, route}) {
   if (!user) {
     return null;
   }
-  const snap_user = $.cache.get_snap(uid);
+  
+  const cache = $.cache.get_snap();
+  
+  const snap_user = cache[uid];
   
   const toast = useToast();
   const { colors } = useTheme();
@@ -82,7 +85,6 @@ const User = function({navigation, route}) {
   const on_press_following = function() {
     navigation.push("UserListScreen", {uid: uid, title: "Following"});
   };
-
 
   const post_count = snap_user.post_count || 0;
   
@@ -149,14 +151,16 @@ const User = function({navigation, route}) {
 
             <View style={{flex: 1, flexDirection: "column", marginHorizontal: 20}}>
               {snap_user.name && (<Text variant="titleMedium" style={{marginVertical: 10, alignSelf: "center"}}>{snap_user.name}</Text>)}
+              {!snap_user.name && (<View style={{height: 24}}/>)}
               <View style={{flex: 1, flexDirection: "row", alignItems: "center"}}>
                 <View style={{flex: 1}}>
-                  <Chip style={{marginRight: 8}} mode="outlined" onPress={on_press_followers}>{snap_user.follow_by_count || 0} {snap_user.follow_by_count === 1 ? "Follower" : "Followers"}</Chip>
+                  <Chip style={{marginRight: 8, alignItems: "center"}} mode="outlined" onPress={on_press_followers}>{snap_user.follow_by_count || 0} {snap_user.follow_by_count === 1 ? "Follower" : "Followers"}</Chip>
                 </View>
                 <View style={{flex: 1}}>
-                  <Chip mode="outlined" onPress={on_press_following}>{snap_user.follow_count || 0} Following</Chip>
+                  <Chip style={{alignItems: "center"}} mode="outlined" onPress={on_press_following}>{snap_user.follow_count || 0} Following</Chip>
                 </View>
               </View>
+              {uid === $.session.uid && <View style={{height: 24}}/>}
               {uid !== $.session.uid && <Button mode="contained" style={{marginTop: 16, width: "100%"}} onPress={on_press_relationship}>{busy_button_text ? busy_button_text : get_relationship_button_text(snap_user.outgoing_status)}</Button>}
             </View>
           </View>
