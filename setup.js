@@ -19,19 +19,12 @@ import Constants from 'expo-constants';
 import * as IntentLauncher from 'expo-intent-launcher';
 import messaging from '@react-native-firebase/messaging';
 import * as timeago from 'timeago.js';
-import uuid from 'react-native-uuid';
 import firestore from "./firestore/firestore";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 
 $.logger = logger.createLogger();
 
 $.logger.info($.build_version);
-
-$.id = {
-  create: function() {
-    return uuid.v4();
-  }
-};
 
 const locale = function(number, index, totalSec) {
   // number: the time ago / time in number;
@@ -113,7 +106,7 @@ $.axios_api.interceptors.response.use(
 
 $.firebase = initializeApp($.config.firebase);
 $.db = getFirestore($.firebase);
-firestore.set_db($.db);
+firestore.set_$($);
 
 $.display_error = function(toast, e) {
   toast.show(e.message, { type: "danger" });
@@ -154,18 +147,18 @@ $.check_notification_permissions = async function() {
       return;
     }
     const token = await messaging().getToken();
-    onSnapshot(doc($.db, "messaging_config", token), async (doc) => {
-      if (doc.exists()) {
-        $.session.messaging_config = doc.data();
-        return;
-      }
+    const doc_ref = doc($.db, "messaging_config", token);
+    const doc_snap = await getDoc(doc_ref);
+    if (doc_snap.exists()) {
+      $.session.messaging_config = doc_snap.data();
+      return;
+    } else {
       await firestore.create_messaging_config({
-        uid: $.session.uid,
-        token: token,
+        token: token
       });
-    });
+    }
   } else {
-    delete $.session.messaging;
+    delete $.session.messaging_config;
   }
   return function() {
 

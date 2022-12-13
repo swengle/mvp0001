@@ -7,12 +7,14 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme } from 'react-native-paper';
 import { Camera } from 'expo-camera';
 import { Image, TouchableOpacity } from "react-native";
-import NameScreen from "./auth/Name";
-import HomeScreen from "./home/Home";
+import NameScreen from "./auth/NameScreen";
+import HomeScreen from "./home/HomeScreen";
 import AlertsScreen from "./alerts/AlertsScreen";
 import UserScreen from "./user/UserScreen";
 import UserListScreen from "./user/UserListScreen";
 import HistoryScreen from "./user/HistoryScreen";
+
+import DiscoverScreen from "./discover/DiscoverScreen";
 
 import SettingsScreen from "./settings/SettingsScreen";
 import ProfileScreen from "./settings/ProfileScreen";
@@ -32,16 +34,29 @@ const HomeStack = function() {
     <HomeStackNavigator.Navigator>
       <HomeStackNavigator.Screen name="HomeScreen" component={HomeScreen} options={{headerShown: false}}/>
       <HomeStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
+      <HomeStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
     </HomeStackNavigator.Navigator>
   );
 };
+
+const DiscoverStackNavigator = createNativeStackNavigator();
+const DiscoverStack = function() {
+  return (
+    <DiscoverStackNavigator.Navigator>
+      <DiscoverStackNavigator.Screen name="DiscoverScreen" component={DiscoverScreen} options={{headerShown: false}}/>
+      <DiscoverStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
+      <DiscoverStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
+    </DiscoverStackNavigator.Navigator>
+  );
+};
+
 
 const AlertsStack = function() {
   return (
     <HomeStackNavigator.Navigator>
       <HomeStackNavigator.Screen name="AlertsScreen" component={AlertsScreen} options={{headerShown: false}}/>
-      <HomeStackNavigator.Screen name="HomeScreen" component={HomeScreen} options={{headerShown: false}}/>
       <HomeStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
+      <HomeStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
     </HomeStackNavigator.Navigator>
   );
 };
@@ -107,7 +122,7 @@ const StackTabs = function({ navigation }) {
       <TabNavigator.Screen name="HomeStack" component={HomeStack} options={{headerShown: false, tabBarLabel: "Home", tabBarIcon: ({ focused, color }) => (
         <MaterialCommunityIcons name={focused ? "home" : "home-outline"} color={focused ? colors.primary : colors.outline} size={26} />
       )}}/>
-      <TabNavigator.Screen name="DiscoverStack" component={HomeStack} options={{headerShown: false, tabBarLabel: "Discover", tabBarIcon: ({ focused, color }) => (
+      <TabNavigator.Screen name="DiscoverStack" component={DiscoverStack} options={{headerShown: false, tabBarLabel: "Discover", tabBarIcon: ({ focused, color }) => (
         <MaterialCommunityIcons name={focused ? "magnify" : "magnify"} color={focused ? colors.primary : colors.outline} size={26} />
       )}}/>
       <TabNavigator.Screen name="NewPostStack" component={HomeStack} options={{headerShown: false, tabBarLabel: "", tabBarIcon: ({ focused, color }) => (

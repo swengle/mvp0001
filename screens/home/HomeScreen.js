@@ -3,7 +3,7 @@ import $ from "../../setup";
 import _ from "underscore";
 import { useEffect, useState } from "react";
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { FlatList, RefreshControl, View } from "react-native";
+import { FlatList, KeyboardAvoidingView, Platform, RefreshControl, View } from "react-native";
 import { useToast } from "react-native-toast-notifications";
 import ListHeader from "../../components/ListHeader";
 import ListFooter from "../../components/ListFooter";
@@ -12,7 +12,6 @@ import { collection, getDocs, limit, query, startAfter, where, orderBy } from "f
 import { Appbar, Divider, Menu, TouchableRipple, useTheme } from "react-native-paper";
 import Post from "../../components/Post";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { proxy, useSnapshot } from "valtio";
 
 const fetch_sizes_by_number_columns = {};
 fetch_sizes_by_number_columns[1] = 8;
@@ -20,16 +19,13 @@ fetch_sizes_by_number_columns[2] = 12;
 fetch_sizes_by_number_columns[3] = 15;
 fetch_sizes_by_number_columns[4] = 24;
 
-const HistoryScreen = function({navigation, route}) {
+const HomeScreen = function({navigation, route}) {
   const { colors } = useTheme();
-  const [number_columns, set_number_columns] = useState($.app.history_number_columns || 3);
+  const [number_columns, set_number_columns] = useState($.app.home_number_columns || 3);
   const [is_gridmenu_visible, set_is_gridmenu_visible] = useState(false);
-  
-  const [history] = useState(proxy({id: "history", data: null}));
-  $.cache.set(history);
-  const snap_history = useSnapshot(history);
-  
+
   // common states for an infinite load page
+  const [data, set_data] = useState();
   const [cursor, set_cursor] = useState();
   const [is_refreshing, set_is_refreshing] = useState(false);
   const [is_refresh_error, set_is_refresh_error ] = useState(false);
@@ -39,6 +35,7 @@ const HistoryScreen = function({navigation, route}) {
   const toast = useToast();
 
   useEffect(() => {
+    $.check_notification_permissions(); 
     refresh();
   }, []);
   
@@ -62,9 +59,9 @@ const HistoryScreen = function({navigation, route}) {
         rows.push(post.id);
       });
       if (cursor) {
-        history.data = history.data.concat(rows);
+        set_data(data.concat(rows));
       } else {
-        history.data = rows;
+        set_data(rows); 
       }
       if (_.size(rows) === fetch_sizes_by_number_columns[number_columns]) {
         set_cursor(_.last(snap_posts.docs));
@@ -98,12 +95,8 @@ const HistoryScreen = function({navigation, route}) {
     }
   };
   
-  const on_press_back = function() {
-    navigation.goBack();
-  };
-  
   const render_post = function(row) {
-    return <Post navigation={navigation} id={row.item}  number_columns={number_columns}/>;
+    return <Post navigation={navigation} id={row.item} number_columns={number_columns}/>;
   };
   
   const on_dismiss_gridmenu = function() {
@@ -117,33 +110,31 @@ const HistoryScreen = function({navigation, route}) {
   const on_press_grid_1 = function() {
     set_number_columns(1);
     set_is_gridmenu_visible(false);
-    $.app.history_number_columns = 1;
+    $.app.home_number_columns = 1;
   };
   
   const on_press_grid_2 = function() {
     set_number_columns(2);
     set_is_gridmenu_visible(false);
-    $.app.history_number_columns = 2;
+    $.app.home_number_columns = 2;
   };
   
   const on_press_grid_3 = function() {
     set_number_columns(3);
     set_is_gridmenu_visible(false);
-    $.app.history_number_columns = 3;
+    $.app.home_number_columns = 3;
   };
   
   const on_press_grid_4 = function() {
     set_number_columns(4);
     set_is_gridmenu_visible(false);
-    $.app.history_number_columns = 4;
+    $.app.home_number_columns = 4;
   };
-  
   
   return (
     <SafeAreaView style ={{flex: 1}} edges={['top', 'left', 'right']}>
       <Appbar.Header>
-        <Appbar.BackAction onPress={on_press_back} />
-        <Appbar.Content title="History" />
+        <Appbar.Content title="Swengle" />
         <Menu
           anchorPosition="bottom"
           visible={is_gridmenu_visible}
@@ -220,32 +211,34 @@ const HistoryScreen = function({navigation, route}) {
           </View>
         </Menu>
       </Appbar.Header>
-      <FlatList
-        key={number_columns}
-        style={{flex: 1}}
-        keyboardShouldPersistTaps="always"
-        data={snap_history.data}
-        renderItem={render_post}
-        keyExtractor = { item => item }
-        ListHeaderComponent = <ListHeader is_error={is_refresh_error} on_press_retry={on_press_retry}/>
-        ListFooterComponent = <ListFooter is_error={is_load_more_error} is_loading_more={is_loading_more} on_press_retry={on_press_retry}/>
-        ListEmptyComponent = <ListEmpty data={snap_history.data} text="No posts found"/>
-        refreshControl={
-          <RefreshControl
-            refreshing={is_refreshing}
-            onRefresh={refresh}
-            tintColor={colors.secondary}
-            colors={[colors.secondary]}
-          />
-        }
-        onEndReached={fetch_more}
-        removeClippedSubviews={true}
-        numColumns={number_columns}
-        horizontal={false}
-      />
+      <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
+        <FlatList
+          key={number_columns}
+          style={{flex: 1}}
+          keyboardShouldPersistTaps="always"
+          data={data}
+          renderItem={render_post}
+          keyExtractor = { item => item }
+          ListHeaderComponent = <ListHeader is_error={is_refresh_error} on_press_retry={on_press_retry}/>
+          ListFooterComponent = <ListFooter is_error={is_load_more_error} is_loading_more={is_loading_more} on_press_retry={on_press_retry}/>
+          ListEmptyComponent = <ListEmpty data={data} text="No posts found"/>
+          refreshControl={
+            <RefreshControl
+              refreshing={is_refreshing}
+              onRefresh={refresh}
+              tintColor={colors.secondary}
+              colors={[colors.secondary]}
+            />
+          }
+          onEndReached={fetch_more}
+          removeClippedSubviews={true}
+          numColumns={number_columns}
+          horizontal={false}
+        />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
 
-export default HistoryScreen;
+export default HomeScreen;

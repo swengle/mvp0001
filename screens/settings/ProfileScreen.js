@@ -27,38 +27,42 @@ const ProfileScreen = function({navigation}) {
   const toast = useToast();
   const { colors } = useTheme();
   const snap_uploader = useSnapshot($.profile_image_uploader.state);
+  const current_user = $.get_current_user();
   const snap_current_user = $.get_snap_current_user();
-  const [is_saving, set_is_saving] = useState(false);
-  const [is_saving_error, set_is_saving_error] = useState(false);
+  
+  const [is_saving_image, set_is_saving_image] = useState(false);
+  const [is_saving_image_error, set_is_saving_image_error] = useState(false);
+  
+  const [is_saving_profile, set_is_saving_profile] = useState(false);
+  const [is_saving_profile_error, set_is_saving_profile_error] = useState(false);
   
   const [username, set_username] = useState(snap_current_user.username);
   const [name, set_name] = useState(snap_current_user.name);
   const [bio, set_bio] = useState(snap_current_user.bio);
   const [is_dirty, set_is_dirty] = useState(false);
-  const [is_saving_profile, set_is_saving_profile] = useState(false);
-  const [is_saving_profile_error, set_is_saving_profile_error] = useState(false);
   const [is_username_valid, set_is_username_valid] = useState(true);
   const [is_name_valid, set_is_name_valid] = useState(true);
   
-  const save_user = async function(params) {
+  const save_image = async function(params) {
     params.id = $.session.uid;
     try {
-      set_is_saving(true);
-      await firestore.update_user(params);
+      set_is_saving_image(true); 
+      const result = await firestore.update_user(params);
+      _.extend(current_user, result);
       $.reset_editor();
     } catch (e) {
       console.log(e);
       $.display_error(toast, new Error("Failed to update profile image."));
-      set_is_saving_error(true);
+      set_is_saving_image_error(true);
     } finally {
-      set_is_saving(false);
+      set_is_saving_image(false);
     }
   };
   
   useEffect(() => {
     const unsubscribe = subscribeKey($.profile_image_uploader.state, "response", async (response) => {
       if (response) {
-        await save_user({profile_image_url: response.secure_url});
+        await save_image({profile_image_url: response.secure_url});
       }
     });
     return unsubscribe;
@@ -85,28 +89,25 @@ const ProfileScreen = function({navigation}) {
   };
   
   const retry = async function() {
-    set_is_saving_error(false);
+    set_is_saving_image_error(false);
     if (!snap_uploader.response) {
       $.profile_image_uploader.retry(); 
     } else {
-      await save_user({profile_image_url: snap_uploader.response.secure_url});
+      await save_image({profile_image_url: snap_uploader.response.secure_url});
     }
   };
   
-  const is_save_error = is_saving_error || snap_uploader.hasErrored;
-  
-  const on_press_save = async function() {
+  const on_press_save_profile = async function() {
     Keyboard.dismiss();
-    const params = {
-      id: $.session.uid
-    };
-    if (name !== snap_current_user.name) {
+    const params = {};
+    params.id = $.session.uid;
+    if (name !== current_user.name) {
       params.name = name;
     }
-    if (username !== snap_current_user.username ) {
+    if (username !==  current_user.username ) {
       params.username = username;
     }
-    if (bio !== snap_current_user.bio) {
+    if (bio !== current_user.bio) {
       params.bio = bio;
     }
     
@@ -118,9 +119,12 @@ const ProfileScreen = function({navigation}) {
     try {
       set_is_saving_profile_error(false);
       set_is_saving_profile(true);
-      await firestore.update_user(params);
+      const result = await firestore.update_user(params);
+      console.log(result);
+      _.extend(current_user, result);
       set_is_dirty(false);
     } catch (e) {
+      console.log(e);
       $.display_error(toast, new Error("Failed to update user."));
       set_is_saving_profile_error(true);
     } finally {
@@ -166,13 +170,15 @@ const ProfileScreen = function({navigation}) {
   
   let remaining = "(" + days + (days === 1 ? " day" : " days") + " " + hours + (hours === 1 ? " hour" : " hours") + ")";
   
+  const is_image_save_error = is_saving_image_error || snap_uploader.hasErrored;
+  
   return (
     <SafeAreaView style ={{flex: 1}} edges={['top', 'left', 'right']}>
       <Appbar.Header>
         <Appbar.BackAction onPress={on_press_back} />
         <Appbar.Content title="Profile Settings" />
         {is_saving_profile && <ActivityIndicator style={{marginRight: 10}}/>}
-        {!is_saving_profile && is_dirty && is_username_valid && is_name_valid && <Button onPress={on_press_save}>Save</Button> }
+        {!is_saving_profile && is_dirty && is_username_valid && is_name_valid && <Button onPress={on_press_save_profile}>Save</Button> }
       </Appbar.Header>
       <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
         <ScrollView style={{flex: 1, padding: 10}}>
@@ -180,15 +186,15 @@ const ProfileScreen = function({navigation}) {
             <TouchableOpacity onPress={on_press_edit_profile_image}>
               {snap_current_user.profile_image_url && <Avatar.Image size={100} source={{uri: snap_current_user.profile_image_url}} />}
               <View style={{position: "absolute", bottom: 0, right: 0, backgroundColor: colors.background, borderRadius: 16, width: 32, height: 32, alignItems: "center", justifyContent: "center"}}>
-                {(is_save_error) && (
+                {(is_image_save_error) && (
                   <MaterialCommunityIcons name="close" size={28} color={colors.error}/>
                 )}
-                {!is_save_error && !(snap_uploader.isUploading || is_saving) && <MaterialCommunityIcons name="camera" size={28}  color={colors.primary}/>}
-                {!is_save_error && (snap_uploader.isUploading || is_saving) && <ActivityIndicator size={28}/>}
+                {!is_image_save_error && !(snap_uploader.isUploading || is_saving_image) && <MaterialCommunityIcons name="camera" size={28}  color={colors.primary}/>}
+                {!is_image_save_error && (snap_uploader.isUploading || is_saving_image) && <ActivityIndicator size={28}/>}
               </View>
             </TouchableOpacity>
             
-            {(is_save_error) && (
+            {(is_image_save_error) && (
               <Button onPress={retry}>Retry</Button>
             )}
           </View>

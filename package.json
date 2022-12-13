@@ -46,7 +46,6 @@
     "react-native-safe-area-context": "4.4.1",
     "react-native-screens": "^3.18.2",
     "react-native-toast-notifications": "^3.3.1",
-    "react-native-uuid": "^2.0.1",
     "react-native-webview": "^11.25.0",
     "styled-components": "^5.3.6",
     "timeago.js": "^4.0.2",

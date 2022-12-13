@@ -2,7 +2,7 @@
 import $ from "../../setup.js";
 import { useEffect, useState } from "react";
 import { Image, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
-import { ActivityIndicator, Button, HelperText, IconButton } from "react-native-paper";
+import { ActivityIndicator, Appbar, Button, HelperText, IconButton } from "react-native-paper";
 import { useSnapshot } from "valtio";
 import { subscribeKey } from 'valtio/utils';
 import { useToast } from "react-native-toast-notifications";
@@ -89,7 +89,9 @@ const DetailsScreen = function({navigation, route}) {
       )}
       {(snap_editor.pic && snap_editor.pic.uri) && (
         <View style={{flex: 1}}>
-          <IconButton icon={"chevron-left"} mode="contained" onPress={on_press_back}/>
+          <Appbar.Header>
+              <Appbar.BackAction onPress={on_press_back} />
+          </Appbar.Header>
           <View>
             <Image source={{ uri: snap_editor.pic.uri }} style={{ width: width, height: picture_height }} />
             

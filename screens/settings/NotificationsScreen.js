@@ -1,5 +1,6 @@
 "use strict";
 import $ from "../../setup";
+import _ from "underscore";
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Appbar, Button, Checkbox, Switch, Text, List} from "react-native-paper";
@@ -12,10 +13,6 @@ const Notificationscreen = function({navigation}) {
   
   const on_press_back = function() {
     navigation.goBack();
-  };
-  
-  const on_press_likes = function() {
-    
   };
   
   const on_press_open_settings = function() {
@@ -38,7 +35,6 @@ const Notificationscreen = function({navigation}) {
     const new_setting = {};
     new_setting[setting_name] = setting_value;
     await firestore.update_messaging_config({
-      uid: $.session.uid,
       token: $.session.messaging_config.token,
       settings: new_setting
     });

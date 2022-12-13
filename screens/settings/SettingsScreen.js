@@ -31,10 +31,16 @@ const SettingsScreen = function({navigation}) {
   };
   
   const on_press_private = async function() {
-    await firestore.update_user_account_privacy({
-      id: $.session.uid,
-      is_account_public: !current_user.is_account_public
-    });
+    try {
+      current_user.is_account_public = !current_user.is_account_public;
+      await firestore.update_user_account_privacy({
+        id: current_user.id,
+        is_account_public: current_user.is_account_public
+      });
+    } catch (e) {
+      console.log(e);
+      current_user.is_account_public = !current_user.is_account_public;
+    }
   };
   
   const on_press_privacy_policy = async function() {

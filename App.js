@@ -8,15 +8,14 @@ import { adaptNavigationTheme, Button, Dialog, Paragraph, Provider as PaperProvi
 import * as SplashScreen from 'expo-splash-screen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { proxy, subscribe, useSnapshot } from 'valtio';
-import uuid from 'react-native-uuid';
 import AuthStack from "./screens/AuthStack";
 import MainStack from "./screens/MainStack";
 import * as Font from 'expo-font';
-import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 import { StatusBar } from 'expo-status-bar';
 import messaging from '@react-native-firebase/messaging';
 import { Asset } from 'expo-asset';
-import { doc, onSnapshot } from "firebase/firestore";
+import firestore from "./firestore/firestore";
 
 const { LightTheme, DarkTheme } = adaptNavigationTheme({
   light: NavigationDefaultTheme,
@@ -55,7 +54,7 @@ export default function App() {
   const snap_session = useSnapshot($.session);
   const snap_dialog = useSnapshot($.dialog);
   const scheme = useColorScheme();
-  let unsubscribe_app, unsubscribe_auth_state, unsubscribe_session, unsubscribe_messaging, unsubscribe_background_messaging, unsubscribe_app_state, unsubscribe_current_user;
+  let unsubscribe_app, unsubscribe_auth_state, unsubscribe_session, unsubscribe_messaging, unsubscribe_background_messaging, unsubscribe_app_state;
  
   useEffect(() => {
     async function prepare() {
@@ -67,10 +66,12 @@ export default function App() {
         unsubscribe_auth_state = onAuthStateChanged(auth, async function(u) {
           if (u) {
             try {
-              unsubscribe_current_user = onSnapshot(doc($.db, "user", u.uid), (doc) => {
-                $.cache.set_user(doc.data());
-                $.session.uid = doc.data().id;
-              });
+              const user_ids = await firestore.load_users({ids: [u.uid]});
+              if (_.size(user_ids) === 1) {
+                $.session.uid = u.uid;
+              } else {
+                await signOut(auth);
+              }
             } catch(e) {
               console.log(e);
             }
@@ -120,9 +121,6 @@ export default function App() {
           }
           _.extend($.app, json);
         }
-        if (!$.app.device_id) {
-          $.app.device_id = uuid.v4();
-        }
       } catch (e) {
         console.warn(e);
       } finally {
@@ -139,7 +137,6 @@ export default function App() {
       unsubscribe_messaging && unsubscribe_messaging();
       unsubscribe_background_messaging && unsubscribe_background_messaging();
       unsubscribe_app_state && unsubscribe_app_state.remove();
-      unsubscribe_current_user && unsubscribe_current_user();
     };
   }, []);
   

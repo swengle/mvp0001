@@ -4,7 +4,7 @@ import _ from "underscore";
 import { useRef, useState } from "react";
 import { Image, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { Camera, CameraType, FlashMode } from 'expo-camera';
-import { IconButton } from 'react-native-paper';
+import { Appbar, IconButton } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
 import { useSnapshot } from 'valtio';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -161,14 +161,13 @@ const CameraScreen = function({ navigation, route }) {
   
   return (
     <SafeAreaView style ={{flex: 1}}>
-      <View style={{flexDirection: "row", paddingLeft: 10, paddingRight: 10}}>
-        <IconButton icon="close" mode="contained" onPress={on_press_close}/>
-        <View style={{flexDirection: "row", flex: 1, justifyContent: "flex-end"}}>
-          <IconButton icon="image-multiple-outline" mode="contained" onPress={on_press_pick_image}/>
-          <IconButton icon={flash_icon} mode="contained" onPress={on_press_flash}/>
-          <IconButton icon={type_icon} mode="contained" onPress={on_press_type}/>
-        </View>
-      </View>
+       <Appbar.Header>
+          <Appbar.BackAction onPress={on_press_close} />
+          <Appbar.Content title={""}  />
+          <Appbar.Action icon={"image-multiple-outline"} onPress={on_press_pick_image} />
+          <Appbar.Action icon={flash_icon} onPress={on_press_flash} />
+          <Appbar.Action icon={type_icon}  onPress={on_press_type} />
+      </Appbar.Header>
       
       <Camera
         ref={ref_camera}

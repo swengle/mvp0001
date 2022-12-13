@@ -6,19 +6,14 @@ class Cache {
     this.data = proxy({});
   }
   
-  set_user(user) {
-    if (this.data[user.id]) {
-      _.extend(this.data[user.id], user); 
-    } else {
-      this.data[user.id] = user;
+  set(entity) {
+    if (!entity.id) {
+      throw new Error("WTF");
     }
-  }
-  
-  set_post(post) {
-    if (this.data[post.id]) {
-      _.extend(this.data[post.id], post); 
+    if (this.data[entity.id]) {
+      _.extend(this.data[entity.id], entity); 
     } else {
-      this.data[post.id] = post;
+      this.data[entity.id] = entity;
     }
   }
   

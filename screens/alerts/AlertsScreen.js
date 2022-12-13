@@ -11,7 +11,6 @@ import * as MediaLibrary from 'expo-media-library';
 const AlertsScreen = function() {
   const { height, width, scale, fontScale } = useWindowDimensions();
   
-  console.log(width);
   
   /*
   const [permissionResponse, requestPermission] = MediaLibrary.usePermissions();

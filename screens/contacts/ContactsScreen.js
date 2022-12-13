@@ -7,9 +7,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActivityIndicator, Appbar, Button, HelperText, Text } from "react-native-paper";
 import * as Contacts from 'expo-contacts';
 import { useToast } from "react-native-toast-notifications";
-import UserRow from "../../components/UserRow";
+import Contact from "../../components/Contact";
+import User from "../../components/User";
 import { getFunctions, httpsCallable } from "firebase/functions";
-import { doc, onSnapshot } from "firebase/firestore";
+import firestore from "../../firestore/firestore";
 
 import { proxy } from "valtio";
 
@@ -26,31 +27,23 @@ const ContactsScreen = function({ navigation }) {
   const [isError, setIsError] = useState();
   const [isBusy, setIsBusy] = useState(true);
   const [isDoRetry, setIsDoRetry] = useState(true);
-  const subscriptions = [];
   
-  const Row = function({ row_id, navigation }) {
-    if (row_id === "is_users_header") {
+  const Row = function({ row, navigation }) {
+    if (row.id === "is_users_header") {
       return <Fragment><Text style={{margin: 10, marginTop: 20}} variant="titleSmall">YOUR CONTACTS ON SWENGLE</Text></Fragment>;
     }
-    else if (row_id === "is_contacts_header") {
+    else if (row.id === "is_contacts_header") {
       return <Fragment><Text style={{margin: 10, marginTop: (user_count > 0) ? 50 : 20}} variant="titleSmall">INVITE CONTACTS</Text></Fragment>;
+    } else if (row.uid) {
+      return <User uid={row.uid} row_id={row.id} navigation={navigation}/>;
+    } else {
+      return <Contact row_id={row.id} navigation={navigation}/>; 
     }
-    return <UserRow row_id={row_id} navigation={navigation}/>;
   };
-
 
   const on_press_back = function() {
     navigation.goBack();
   };
-
-  useEffect(() => {
-    return function() {
-      $.contacts_rows_by_id = proxy({});
-      _.each(subscriptions, function(end_subscription) {
-        end_subscription();
-      });
-    };
-  }, []);
 
   useEffect(() => {
     if (isDoRetry) {
@@ -65,6 +58,7 @@ const ContactsScreen = function({ navigation }) {
           setIsBusy(true);
 
           const response = (await f_from_contacts({ contacts: output })).data;
+          
           set_user_count(response.user_count);
           
           response.data.splice(0, 0, {
@@ -85,40 +79,19 @@ const ContactsScreen = function({ navigation }) {
             }
             final_data.push(f);
           });
-          
 
-          if (response.user_count === 0) {
-            set_data(final_data); 
-          }
           
           if (response.user_count > 0) {
-            const done = {};
-            const final_done_count = response.user_count * 2;
             // starting at 1 since we added the header row
+            const uids = [];
             for (let i=1; i<(response.user_count+1); i++) {
-              const id = response.data[i].id;
-              const uid = response.data[i].uid;
-              const relationship_id = $.session.uid + uid;
-              subscriptions.push(onSnapshot(doc($.db, "user", uid), (doc) => {
-                $.contacts_rows_by_id[id].user = doc.data();
-                done[uid] = true;
-                if (_.size(done) === final_done_count) {
-                  set_data(final_data); 
-                }
-              }));
-              subscriptions.push(onSnapshot(doc($.db, "relationship", relationship_id), (doc) => {
-                if (!doc.exists()) {
-                  $.contacts_rows_by_id[id].relationship = {status: "none"};
-                } else {
-                  $.contacts_rows_by_id[id].relationship = doc.data();
-                }
-                done[relationship_id] = true;
-                if (_.size(done) === final_done_count) {
-                  set_data(final_data);
-                }
-              }));
+              uids.push(response.data[i].uid);
             }
+            await firestore.load_users({
+              ids: uids
+            });
           }
+          set_data(final_data);
         }
         catch (e) {
           $.display_error(toast, new Error("Failed to process contacts."));
@@ -140,7 +113,7 @@ const ContactsScreen = function({ navigation }) {
   };
 
   const render_found = function(r) {
-    return <Row row_id={r.item.id} navigation={navigation}/>;
+    return <Row row={r.item} navigation={navigation}/>;
   };
 
   return (
