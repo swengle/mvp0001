@@ -1,7 +1,7 @@
 import $ from "./setup";
 import _ from "underscore";
 import { useEffect } from "react";
-import { AppState, LogBox, useColorScheme } from 'react-native';
+import { AppState, LogBox, useColorScheme, useWindowDimensions } from 'react-native';
 import Toast, { ToastProvider } from 'react-native-toast-notifications';
 import { NavigationContainer, DarkTheme as NavigationDarkTheme, DefaultTheme as NavigationDefaultTheme } from '@react-navigation/native';
 import { adaptNavigationTheme, Button, Dialog, Paragraph, Provider as PaperProvider, MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
@@ -44,17 +44,42 @@ SplashScreen.preventAutoHideAsync();
 
 export default function App() {
   LogBox.ignoreLogs(["AsyncStorage has been extracted from react-native core and will be removed in a future release. It can now be installed and imported from '@react-native-async-storage/async-storage' instead of 'react-native'. See https://github.com/react-native-async-storage/async-storage"]);
+  const { width } = useWindowDimensions();
   if (!$.session) {
     $.session = proxy({});
   }
   if (!$.dialog) {
     $.dialog = proxy({});
   }
+  
+  $.const = {
+    image_sizes: {
+      "1" : {
+        width: width,
+        height: width * (1350/1080)
+      },
+      "2" : {
+        width: width/2,
+        height: (width/2)  * (1350/1080)
+      },
+      "3" : {
+        width: width/3,
+        height: (width/3) * (1350/1080)
+      },
+      "4" : {
+        width: width/4,
+        height: (width/4) * (1350/1080)
+      }
+    }
+  };
+  
+  
   const snap_app = useSnapshot($.app);
   const snap_session = useSnapshot($.session);
   const snap_dialog = useSnapshot($.dialog);
   const scheme = useColorScheme();
   let unsubscribe_app, unsubscribe_auth_state, unsubscribe_session, unsubscribe_messaging, unsubscribe_background_messaging, unsubscribe_app_state;
+  
  
   useEffect(() => {
     async function prepare() {

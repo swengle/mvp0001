@@ -156,8 +156,10 @@ const StackTabs = function({ navigation }) {
 
 const MainStack = function() {
   const snap_current_user = $.get_snap_current_user();
-  console.log(snap_current_user);
-  
+  if (!snap_current_user) {
+    return null;
+  }
+
   return (
     <Stack.Navigator screenOptions={{headerShown: false, ...TransitionPresets.ModalPresentationIOS}}>
       {!snap_current_user.username && (

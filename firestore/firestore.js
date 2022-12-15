@@ -2,6 +2,7 @@
 import _ from "underscore";
 import { collection, doc, documentId, getDoc, getDocs, increment, query, runTransaction, setDoc, updateDoc, where, Timestamp } from "firebase/firestore";
 import { getHex } from "pastel-color";
+import useCachedData from "../hooks/useCachedData";
 
 const SIZE = 1080;
 const WINDOW_SIZE = 390;
@@ -25,7 +26,32 @@ const firestore = {
     $ = _$;
     db = $.db;
   },
-  load_users: async function(params, relationship_by_uid) {
+  inflate_posts: async function(params, cache_set) {
+    const chunks = _.chunk(params.posts, 10);
+    await Promise.all(chunks.map(async (chunk) => {
+      const like_chunk = [];
+      _.each(chunk, function(post) {
+        like_chunk.push($.session.uid + post.id);
+      });
+      const q_like = query(collection(db, "like"), where(documentId(), "in", like_chunk));
+      const snap_likes = await getDocs(q_like);
+      const liked_by_post_id = {};
+      _.each(snap_likes.docs, function(like_doc) {
+        if (like_doc.exists()) {
+          const like = like_doc.data();
+          if (like.is_liked) {
+            liked_by_post_id[like.post_id] = true; 
+          }
+        }
+      });
+      _.each(chunk, function(post) {
+        post.is_liked = liked_by_post_id[post.id] || false;
+        cache_set(post);
+      });
+    }));
+  },
+  load_users: async function(params, cache_set, options) {
+    options = options || {};
     const uids = [];
     if (_.size(params.ids) === 0) {
       return uids;
@@ -39,19 +65,19 @@ const firestore = {
         }
       });
       const q_user = query(collection(db, "user"), where(documentId(), "in", chunk));
-      const q_relationship = (relationship_by_uid || _.size(relationship_chunk) === 0) ? null : query(collection(db, "relationship"), where(documentId(), "in", relationship_chunk));
+      const q_relationship = (options.relationship_by_uid || _.size(relationship_chunk) === 0) ? null : query(collection(db, "relationship"), where(documentId(), "in", relationship_chunk));
       let snap_users, snap_relationships;
       await Promise.all([
         snap_users = await getDocs(q_user),
         snap_relationships = (q_relationship) ? await getDocs(q_relationship) : null
       ]);
 
-      if (!relationship_by_uid) {
-        relationship_by_uid = {};
+      if (!options.relationship_by_uid) {
+        options.relationship_by_uid = {};
         if (snap_relationships) {
           _.each(snap_relationships.docs, function(doc_relationship) {
             const relationship = doc_relationship.data();
-            relationship_by_uid[relationship.uid] = relationship;
+            options.relationship_by_uid[relationship.uid] = relationship;
           });
         }
       }
@@ -63,8 +89,8 @@ const firestore = {
           current_post_ids.push(user.current_post_id);
         }
         uids.push(user.id);
-        user.outgoing_status = relationship_by_uid[user.id] ? relationship_by_uid[user.id].status : "none";
-        $.cache.set(user);
+        user.outgoing_status = options.relationship_by_uid[user.id] ? options.relationship_by_uid[user.id].status : "none";
+        cache_set ? cache_set(user) : useCachedData.cache_set(user);
       });
       
       if (_.size(current_post_ids)) {
@@ -73,7 +99,7 @@ const firestore = {
           const q_post = query(collection(db, "post"), where(documentId(), "in", chunk_post_ids));
           const snap_posts = await getDocs(q_post);
           _.each(snap_posts.docs, function(doc_post) {
-            $.cache.set(doc_post.data());
+            useCachedData.cache_set(doc_post.data());
           });
         }));
       }
@@ -170,7 +196,7 @@ const firestore = {
     const other_relationship_ref = doc(db, "relationship", params.uid + $.session.uid);
 
     const current_user = $.get_current_user();
-    const user = $.cache.get(params.uid);
+    const user = useCachedData.cache_get(params.uid);
 
     if (!current_user || !user) {
       return;
@@ -361,7 +387,7 @@ const firestore = {
         }
       }
     });
-    _.extend($.cache.get(params.uid), result);
+    _.extend(useCachedData.cache_get(params.uid), result);
     return result;
   },
   save_post: async function(params) {
@@ -394,11 +420,13 @@ const firestore = {
       });
     });
 
-    $.cache.set(new_post);
+    useCachedData.cache_set(new_post);
     _.extend(current_user, {
       post_count: _.isNumber(current_user.post_count) ? ++current_user.post_count : 1,
       current_post_id: new_post.id
     });
+    
+    const history_cache_data = useCachedData.cache_get_snap("history");
     
     const history = $.data_cache.get("history");
     if (history) {
@@ -441,6 +469,59 @@ const firestore = {
     }
     
     return;
+  },
+  like_post: async function(params) {
+    const current_user = $.get_current_user();
+    if (!current_user) {
+      return;
+    }
+    const post = $.cache.get(params.id);
+    if (!post || post.is_liked) {
+      return;
+    }
+    const post_ref = doc(db, "post", params.id);
+    const like_ref = doc(db, "like", $.session.uid + params.id);
+    await runTransaction(db, async (transaction) => {
+      const like_doc_snap = await transaction.get(like_ref);
+      if (like_doc_snap.exists()) {
+        const like = like_doc_snap.data();
+        if (!like.is_liked) {
+          await transaction.update(like_ref, {updated_at: Timestamp.now(), is_liked: true, like_count: increment(1)});
+          await transaction.update(post_ref, {updated_at: Timestamp.now(), like_count: increment(1)});
+          post.is_liked = true;
+          _.isNumber(post.like_count) ? ++post.like_count : post.like_count = 1;
+        }
+      } else {
+        await transaction.set(like_ref, {uid: current_user.id, post_id: post.id, is_liked: true, like_count: 1, unlike_count: 0, updated_at: Timestamp.now(), created_at: Timestamp.now()});
+        await transaction.update(post_ref, {updated_at: Timestamp.now(), like_count: increment(1)});
+        post.is_liked = true;
+        _.isNumber(post.like_count) ? ++post.like_count : post.like_count = 1;
+      }
+    });
+  },
+  unlike_post: async function(params) {
+    const current_user = $.get_current_user();
+    if (!current_user) {
+      return;
+    }
+    const post = $.cache.get(params.id);
+    if (!post || !post.is_liked) {
+      return;
+    }
+    const post_ref = doc(db, "post", params.id);
+    const like_ref = doc(db, "like", $.session.uid + params.id);
+    await runTransaction(db, async (transaction) => {
+      const like_doc_snap = await transaction.get(like_ref);
+      if (like_doc_snap.exists()) {
+        const like = like_doc_snap.data();
+        if (like.is_liked) {
+          await transaction.update(like_ref, {updated_at: Timestamp.now(), is_liked: false, unlike_count: increment(1)});
+          await transaction.update(post_ref, {updated_at: Timestamp.now(), like_count: increment(-1)});
+          post.is_liked = false;
+          _.isNumber(post.like_count) ? --post.like_count : post.like_count = 0;
+        }
+      }
+    });
   }
 };
 

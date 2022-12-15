@@ -19,6 +19,20 @@ const f_from_contacts = httpsCallable(functions, 'from_contacts');
 
 $.contacts_rows_by_id = proxy({});
 
+
+const Row = function({ row, navigation, user_count }) {
+  if (row.id === "is_users_header") {
+    return <Fragment><Text style={{margin: 10, marginTop: 20}} variant="titleSmall">YOUR CONTACTS ON SWENGLE</Text></Fragment>;
+  }
+  else if (row.id === "is_contacts_header") {
+    return <Fragment><Text style={{margin: 10, marginTop: (user_count > 0) ? 50 : 20}} variant="titleSmall">INVITE CONTACTS</Text></Fragment>;
+  } else if (row.uid) {
+    return <User uid={row.uid} row_id={row.id} navigation={navigation}/>;
+  } else {
+    return <Contact row_id={row.id} navigation={navigation}/>; 
+  }
+};
+
 const ContactsScreen = function({ navigation }) {
   const toast = useToast();
   const [data, set_data] = useState();
@@ -27,19 +41,6 @@ const ContactsScreen = function({ navigation }) {
   const [isError, setIsError] = useState();
   const [isBusy, setIsBusy] = useState(true);
   const [isDoRetry, setIsDoRetry] = useState(true);
-  
-  const Row = function({ row, navigation }) {
-    if (row.id === "is_users_header") {
-      return <Fragment><Text style={{margin: 10, marginTop: 20}} variant="titleSmall">YOUR CONTACTS ON SWENGLE</Text></Fragment>;
-    }
-    else if (row.id === "is_contacts_header") {
-      return <Fragment><Text style={{margin: 10, marginTop: (user_count > 0) ? 50 : 20}} variant="titleSmall">INVITE CONTACTS</Text></Fragment>;
-    } else if (row.uid) {
-      return <User uid={row.uid} row_id={row.id} navigation={navigation}/>;
-    } else {
-      return <Contact row_id={row.id} navigation={navigation}/>; 
-    }
-  };
 
   const on_press_back = function() {
     navigation.goBack();
@@ -113,7 +114,7 @@ const ContactsScreen = function({ navigation }) {
   };
 
   const render_found = function(r) {
-    return <Row row={r.item} navigation={navigation}/>;
+    return <Row row={r.item} user_count={user_count} navigation={navigation}/>;
   };
 
   return (

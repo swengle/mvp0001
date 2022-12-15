@@ -13,7 +13,6 @@ import { logger } from "react-native-logs";
 import axios from "axios";
 import Cache from "./cache";
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import Constants from 'expo-constants';
 import * as IntentLauncher from 'expo-intent-launcher';
@@ -21,6 +20,7 @@ import messaging from '@react-native-firebase/messaging';
 import * as timeago from 'timeago.js';
 import firestore from "./firestore/firestore";
 import { doc, getDoc } from "firebase/firestore";
+import useCachedData from "./hooks/useCachedData";
 
 $.logger = logger.createLogger();
 
@@ -81,19 +81,17 @@ $.editor = proxy({});
 $.cache = new Cache();
 $.data_cache = new Cache({});
 
+
 $.get_snap_current_user = function() {
   if ($.session && $.session.uid) {
-    const snap_cache = $.cache.get_snap();
-    return snap_cache[$.session.uid];
+    return useCachedData.cache_get_snap($.session.uid);
   }
-  return;
 };
 
 $.get_current_user = function() {
-    if ($.session && $.session.uid) {
-    return $.cache.get($.session.uid);
+  if ($.session && $.session.uid) {
+    return useCachedData.cache_get($.session.uid);
   }
-  return;
 };
 
 $.reset_editor = function() {

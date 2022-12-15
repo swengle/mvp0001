@@ -6,6 +6,7 @@ import { TouchableOpacity, View } from 'react-native';
 import { Avatar, Button, Text, useTheme } from "react-native-paper";
 import firestore from "../firestore/firestore";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import useCachedData from "../hooks/useCachedData";
 
 const get_relationship_action = function(status) {
   if (status === "none" || status === "unfollow") {
@@ -37,9 +38,14 @@ const User = function({uid, row_id, navigation}) {
   const toast = useToast();
   const [busy_button_text, set_busy_button_text] = useState();
   
-  const cache = $.cache.get_snap();
-  const snap_user = cache[uid];
-  const user = $.cache.get(uid);
+  const { cache_get, cache_get_snap } = useCachedData();
+  const user = cache_get(uid);
+  
+  if (!user) {
+    return null;
+  }
+  
+  const snap_user = cache_get_snap(uid);
   
   const on_press_relationship = async function() {
     try {

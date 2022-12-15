@@ -9,6 +9,7 @@ import * as Contacts from 'expo-contacts';
 import { doc, getDoc } from "firebase/firestore";
 import firestore from "../../firestore/firestore";
 import Post from "../../components/Post";
+import useCachedData from "../../hooks/useCachedData";
 
 const get_relationship_action = function(status) {
   if (status === "none" || status === "unfollow") {
@@ -42,14 +43,14 @@ const User = function({navigation, route}) {
     uid = $.session.uid;
     is_tabs_screen = true;
   }
-  const user = $.cache.get(uid);
+  const {cache_get, cache_get_snap} = useCachedData();
+  
+  const user = cache_get(uid);
   if (!user) {
     return null;
   }
   
-  const cache = $.cache.get_snap();
-  
-  const snap_user = cache[uid];
+  const snap_user = cache_get_snap(uid);
   
   const toast = useToast();
   const { colors } = useTheme();
