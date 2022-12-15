@@ -2,7 +2,7 @@
 import $ from "../setup";
 import { Fragment, useRef, useState } from "react";
 import { Animated, StyleSheet, View } from 'react-native';
-import { Avatar, Text, useTheme } from "react-native-paper";
+import { Avatar, Divider, Text, useTheme } from "react-native-paper";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import FastImage from 'react-native-fast-image';
 import firestore from "../firestore/firestore";
@@ -89,10 +89,10 @@ const Post = function({id, navigation, number_columns, is_history_screen}) {
   };
 
   return (
-    <View style={{width: $.const.image_sizes[number_columns].width, height: $.const.image_sizes[number_columns].height}}>
-      <FastImage source={{uri:snap_post.image_urls["1080"].url}} style={{width: $.const.image_sizes[number_columns].width, height: $.const.image_sizes[number_columns].height, borderWidth: number_columns === 1 ? 1 : StyleSheet.hairlineWidth, borderColor: colors.background}} onLoad={on_image_load}/>
+    <View>
+      <FastImage source={{uri:snap_post.image_urls["1080"].url}} style={{width: $.const.image_sizes[number_columns].width, height: $.const.image_sizes[number_columns].height, borderWidth: (number_columns === 2 || number_columns === 3) ? 1 : number_columns === 4 ? StyleSheet.hairlineWidth : null, borderColor: colors.background}} onLoad={on_image_load}/>
       <View style={{backgroundColor: "rgba(0, 0, 0, 0.2)", position: "absolute", width: $.const.image_sizes[number_columns].width, height: $.const.image_sizes[number_columns].height}}>
-        {(true || is_image_loaded) && number_columns === 1 && (
+        {(is_image_loaded) && number_columns === 1 && (
           <Fragment>
             <View style={{marginLeft: 10, marginTop: 10}}>
               <LiveTimeAgo style={[styles.image_text_1, styles.image_text]} date={snap_post.created_at.toDate()}/>
@@ -129,7 +129,7 @@ const Post = function({id, navigation, number_columns, is_history_screen}) {
             </View>
           </Fragment>
         )}
-        {(true || is_image_loaded) && number_columns === 2 && (
+        {(is_image_loaded) && number_columns === 2 && (
           <Fragment>
             <View style={{marginLeft: 10, marginTop: 10}}>
               <LiveTimeAgo style={[styles.image_text_2, styles.image_text]} date={snap_post.created_at.toDate()}/>
@@ -166,7 +166,7 @@ const Post = function({id, navigation, number_columns, is_history_screen}) {
             </View>
           </Fragment>
         )}
-        {(true || is_image_loaded) && number_columns === 3 && (
+        {(is_image_loaded) && number_columns === 3 && (
           <Fragment>
             <View style={{marginLeft: 6, marginTop: 6}}>
               <LiveTimeAgo style={[styles.image_text_3, styles.image_text]} date={snap_post.created_at.toDate()}/>
@@ -180,7 +180,7 @@ const Post = function({id, navigation, number_columns, is_history_screen}) {
             {true && <View style={{padding: 4}}><Text numberOfLines={1} style={[styles.image_text_3, styles.image_text, {width: "100%"}]}>This is some text to go with this thing! This is some text to go with this thing! This is some text to go</Text></View>}
           </Fragment>
         )}
-        {(true || is_image_loaded) && number_columns === 4 && (
+        {(is_image_loaded) && number_columns === 4 && (
           <Fragment>
             <View style={{marginLeft: 5, marginTop: 5}}>
               <LiveTimeAgo style={[styles.image_text_4, styles.image_text]} date={snap_post.created_at.toDate()}/>
@@ -195,6 +195,9 @@ const Post = function({id, navigation, number_columns, is_history_screen}) {
           </Fragment>
         )}
       </View>
+      { number_columns === 1 && (
+        <Divider style={{marginVertical: 2}}/>
+      )}
     </View>
   );
 };

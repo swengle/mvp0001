@@ -86,8 +86,8 @@ useCachedData.cache_unset = function(id) {
   _.each(cached_datas_by_id, function(cache_data) {
     if (cache_data.entity_ids[id]) {
       delete cache_data.entity_ids[id];
-      cache_data.data = _.without(cache_data.data, function(d) {
-        return d.id === id;
+      cache_data.data = _.reject(cache_data.data, function(d) {
+        return d === id;
       });
     }
   });

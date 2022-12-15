@@ -78,9 +78,6 @@ $.auth = proxy({
 });
 $.app = proxy({});
 $.editor = proxy({});
-$.cache = new Cache();
-$.data_cache = new Cache({});
-
 
 $.get_snap_current_user = function() {
   if ($.session && $.session.uid) {
