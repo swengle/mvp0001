@@ -43,7 +43,7 @@ const User = function({navigation, route}) {
     uid = $.session.uid;
     is_tabs_screen = true;
   }
-  const {cache_get, cache_get_snap} = useCachedData();
+  const {cache_get, cache_get_snap, cache_set} = useCachedData();
   
   const user = cache_get(uid);
   if (!user) {
@@ -63,13 +63,13 @@ const User = function({navigation, route}) {
     const snap_user_doc = getDoc(ref_user_doc);
     if (snap_user_doc.exists) {
       const user = snap_user_doc.data();
-      $.cache.set(user);
+      cache_set(user);
       if (user.current_post_id) {
         const ref_post_doc = doc($.db, "post", user.current_post_id);
         const snap_post_doc = getDoc(ref_post_doc);
         if (snap_post_doc.exists()) {
           const post = snap_post_doc.data();
-          $.cache.set(post);
+          cache_set(post);
         }
       }
     }

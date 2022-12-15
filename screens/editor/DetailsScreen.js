@@ -51,9 +51,10 @@ const DetailsScreen = function({navigation, route}) {
   const save = async function(response) {
     set_is_saving_failed(false);
     try {
-      await firestore.save_post({uid: $.session.uid, image: response, emoji: snap_editor.emoji});
+      await firestore.save_post({image: response, emoji: snap_editor.emoji});
       navigation.navigate("StackTabs");
     } catch (e) {
+      console.log(e);
       $.display_error(toast, new Error("Failed to save image."));
       set_is_saving_failed(true);
     } finally {

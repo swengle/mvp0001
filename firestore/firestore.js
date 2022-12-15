@@ -401,7 +401,7 @@ const firestore = {
     const new_id = doc(collection(db, "post")).id;
     const new_post = {
       id: new_id,
-      uid: params.uid,
+      uid: $.session.uid,
       created_at: now,
       updated_at: now,
       image: params.image,
@@ -426,11 +426,10 @@ const firestore = {
       current_post_id: new_post.id
     });
     
-    const history_cache_data = useCachedData.cache_get_snap("history");
-    
-    const history = $.data_cache.get("history");
-    if (history) {
-      history.data.unshift(new_post.id);
+
+    const history_cache_data = useCachedData.cache_data_get("history");
+    if (history_cache_data) {
+      useCachedData.unshift_entity_already_in_cache(new_post.id, history_cache_data);
     }
     
     return new_post;
@@ -456,13 +455,8 @@ const firestore = {
       await transaction.update(current_user_ref, user_update);
     });
 
-    // TODO ways to make this a lot faster (:-) store ids in a map)....
-    _.each($.data_cache.data, function(value) {
-      value.data = _.reject(value.data, function(id) {
-        return id === params.id;
-      });
-    });
-    $.cache.unset(params.id);
+    useCachedData.cache_unset(params.id);
+    
     _.isNumber(current_user.post_count) ? --current_user.post_count : current_user.post_count = 0;
     if (current_user.current_post_id === params.id) {
       current_user.current_post_id = null;
@@ -475,7 +469,7 @@ const firestore = {
     if (!current_user) {
       return;
     }
-    const post = $.cache.get(params.id);
+    const post = useCachedData.cache_get(params.id);
     if (!post || post.is_liked) {
       return;
     }
@@ -504,7 +498,7 @@ const firestore = {
     if (!current_user) {
       return;
     }
-    const post = $.cache.get(params.id);
+    const post = useCachedData.cache_get(params.id);
     if (!post || !post.is_liked) {
       return;
     }
