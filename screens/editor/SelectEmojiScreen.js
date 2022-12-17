@@ -1,7 +1,8 @@
 "use strict";
 import $ from "../../setup";
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Keyboard, TouchableOpacity, Text } from 'react-native';
+import { Keyboard, Text } from 'react-native';
+import TouchableOpacity  from "../../components/TouchableOpacity";
 import EmojiSelector from "../../components/EmojiSelector";
 import { useSnapshot } from "valtio";
 import { Appbar } from "react-native-paper";
@@ -13,9 +14,9 @@ const SelectEmojiScreen = function({ navigation }) {
     navigation.goBack();
   };   
   
-  const on_emoji_select = function(emoji) {
+  const on_emoji_select = function(emoji_data) {
     Keyboard.dismiss();
-    $.editor.emoji = emoji;
+    $.editor.emoji = emoji_data;
     navigation.push("DetailsScreen");
   };
   

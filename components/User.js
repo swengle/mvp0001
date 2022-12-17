@@ -2,7 +2,8 @@
 import $ from "../setup";
 import { useState } from "react";
 import { useToast } from "react-native-toast-notifications";
-import { TouchableOpacity, View } from 'react-native';
+import { View } from 'react-native';
+import TouchableOpacity  from "../components/TouchableOpacity";
 import { Avatar, Button, Text, useTheme } from "react-native-paper";
 import firestore from "../firestore/firestore";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';

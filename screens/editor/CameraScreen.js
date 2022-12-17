@@ -2,7 +2,8 @@
 import $ from "../../setup.js";
 import _ from "underscore";
 import { useRef, useState } from "react";
-import { Image, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Image, View, useWindowDimensions } from 'react-native';
+import TouchableOpacity  from "../../components/TouchableOpacity";
 import { Camera, CameraType, FlashMode } from 'expo-camera';
 import { Appbar, IconButton } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';

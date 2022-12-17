@@ -4,20 +4,6 @@ import { collection, doc, documentId, getDoc, getDocs, increment, query, runTran
 import { getHex } from "pastel-color";
 import useCachedData from "../hooks/useCachedData";
 
-const SIZE = 1080;
-const WINDOW_SIZE = 390;
-const MARGIN_RIGHT = 10;
-const MARGIN_TOP = 10;
-const CIRCLE_SIZE = 100;
-const EMOJI_SIZE = 64;
-const OPACITY = 0.4;
-
-const circle_size = Math.round(SIZE * (CIRCLE_SIZE / WINDOW_SIZE));
-const margin_circle_top = Math.round(SIZE * (MARGIN_TOP / WINDOW_SIZE));
-const margin_circle_right = Math.round(SIZE * (MARGIN_RIGHT / WINDOW_SIZE));
-const icon_size = Math.round(SIZE * (EMOJI_SIZE / WINDOW_SIZE));
-const margin_icon_top = margin_circle_top + Math.round((circle_size - icon_size) / 2);
-const margin_icon_right = margin_circle_right + Math.round((circle_size - icon_size) / 2);
 
 let $, db;
 
@@ -451,8 +437,9 @@ const firestore = {
     if (!current_user) {
       return;
     }
-    const url_parts = params.image.url.split("/upload");
-    const url = url_parts[0] + "/upload/c_scale,g_north_east,l_misc:circle_r39zfi.png,w_" + circle_size + ",h_" + circle_size + ",x_" + margin_circle_right + ",y_" + margin_circle_top + "/c_scale,g_north_east,l_emojis:" + params.emoji.id + ".png,w_" + icon_size + ",h_" + icon_size + ",x_" + margin_icon_right + ",y_" + margin_icon_top + url_parts[1];
+    //const url_parts = params.image.url.split("/upload");
+    //const url = url_parts[0] + "/upload/c_scale,g_north_east,l_misc:circle_r39zfi.png,w_" + circle_size + ",h_" + circle_size + ",x_" + margin_circle_right + ",y_" + margin_circle_top + "/c_scale,g_north_east,l_emojis:" + params.emoji.id + ".png,w_" + icon_size + ",h_" + icon_size + ",x_" + margin_icon_right + ",y_" + margin_icon_top + url_parts[1];
+    const url = params.image.url;
     const now = Timestamp.now();
     const new_id = doc(collection(db, "post")).id;
     const new_post = {

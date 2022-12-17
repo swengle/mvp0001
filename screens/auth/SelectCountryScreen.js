@@ -4,7 +4,7 @@ import _ from "underscore";
 import { useState } from "react";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlatList, StyleSheet, View } from "react-native";
-import { TouchableOpacity } from "react-native-gesture-handler";
+import TouchableOpacity  from "../../components/TouchableOpacity";
 import { useSnapshot } from 'valtio';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useKeyboard } from '@react-native-community/hooks';

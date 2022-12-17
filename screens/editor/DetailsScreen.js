@@ -1,21 +1,14 @@
 "use strict";
 import $ from "../../setup.js";
 import { useEffect, useState } from "react";
-import { Image, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import { Image, useWindowDimensions, View } from 'react-native';
 import { ActivityIndicator, Appbar, Button, HelperText } from "react-native-paper";
 import { useSnapshot } from "valtio";
 import { subscribeKey } from 'valtio/utils';
 import { useToast } from "react-native-toast-notifications";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import firestore from "../../firestore/firestore";
-
-const SIZE = 1080;
-const WINDOW_SIZE = 390;
-const MARGIN_RIGHT = 10;
-const MARGIN_TOP = 10;
-const CIRCLE_SIZE = 100;
-const EMOJI_SIZE = 64;
-const OPACITY = 0.4;
+import EmojiOverlay from "../../components/EmojiOverlay";
 
 const DetailsScreen = function({navigation, route}) {
   const toast = useToast();
@@ -51,7 +44,7 @@ const DetailsScreen = function({navigation, route}) {
   const save = async function(response) {
     set_is_saving_failed(false);
     try {
-      await firestore.create_post({image: response, emoji: snap_editor.emoji});
+      await firestore.create_post({image: response, emoji: snap_editor.emoji.char});
       navigation.navigate("StackTabs");
     } catch (e) {
       $.logger.error(e);
@@ -95,15 +88,7 @@ const DetailsScreen = function({navigation, route}) {
           </Appbar.Header>
           <View>
             <Image source={{ uri: snap_editor.pic.uri }} style={{ width: width, height: picture_height }} />
-            
-            <TouchableOpacity style={{position: "absolute", right: MARGIN_RIGHT, top: MARGIN_TOP, width: CIRCLE_SIZE, height: CIRCLE_SIZE}} onPress={on_press_back}>
-              <View style={{position: "absolute", width: CIRCLE_SIZE, height: CIRCLE_SIZE, opacity: OPACITY, backgroundColor: "black", borderRadius: CIRCLE_SIZE/2}}/>
-              <View style={{position: "absolute", width: CIRCLE_SIZE, height: CIRCLE_SIZE, borderRadius: CIRCLE_SIZE/2, borderWidth: 2, borderColor: "white"}}/>
-              <View style={{position: "absolute", width: CIRCLE_SIZE, height: CIRCLE_SIZE, alignItems: "center", justifyContent: "center"}}>
-                <Text style={{ fontFamily: "TwemojiMozilla", fontSize: EMOJI_SIZE, width: EMOJI_SIZE}}>{snap_editor.emoji.base}</Text>
-              </View>
-              <Text>{snap_uploader.hasErrored }</Text>
-            </TouchableOpacity>
+            <EmojiOverlay on_press={on_press_back} emoji_char={snap_editor.emoji.char} scaling_factor={1}/>
           </View>
           
           <View style={{flexDirection: "row", alignItems: "center", justifyContent: "center", position: "absolute", left: 0, bottom: 48, width: width}}>

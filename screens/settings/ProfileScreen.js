@@ -2,7 +2,8 @@
 import $ from "../../setup";
 import _ from "underscore";
 import { useEffect, useState } from "react";
-import { Platform, Keyboard, KeyboardAvoidingView, ScrollView, TouchableOpacity, View } from 'react-native';
+import { Platform, Keyboard, KeyboardAvoidingView, ScrollView, View } from 'react-native';
+import TouchableOpacity  from "../../components/TouchableOpacity";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar, TextInput } from "react-native-paper";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';

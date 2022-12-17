@@ -3,7 +3,8 @@ import $ from "../../setup.js";
 import _ from "underscore";
 import { useState } from "react";
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Platform, KeyboardAvoidingView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Platform, KeyboardAvoidingView, ScrollView, StyleSheet, View } from 'react-native';
+import TouchableOpacity  from "../../components/TouchableOpacity";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import {
   CodeField,

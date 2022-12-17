@@ -6,7 +6,7 @@ import { Animated, View } from 'react-native';
 import { Avatar, HelperText, Text, Surface, useTheme } from "react-native-paper";
 import useCachedData from "../hooks/useCachedData";
 import firestore from "../firestore/firestore";
-import { TouchableOpacity } from "react-native-gesture-handler";
+import TouchableOpacity  from "../components/TouchableOpacity";
 import LiveTimeAgo from "../components/LiveTimeAgo";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
