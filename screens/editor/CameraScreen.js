@@ -139,7 +139,7 @@ const CameraScreen = function({ navigation, route }) {
       $.editor.pic = await ImageManipulator.manipulateAsync(asset.uri, ops, {compress: source === "new_pic" ? 0.9 : 1});
       let uploader;
       if (source === "new_pic") {
-        uploader =$.uploader = new Uploader(); 
+        uploader = $.uploader = new Uploader(); 
       } else {
         uploader = $.profile_image_uploader;
       }

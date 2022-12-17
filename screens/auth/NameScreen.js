@@ -26,6 +26,7 @@ function ScreenName({ navigation }) {
       setIsBusy(true);
       setIsUsernameAvailable(await firestore.is_username_available({username: val}));
     } catch (e) {
+      $.logger.error(e);
       $.display_error(toast, new Error("Unable to check username."));
     } finally {
       setIsBusy(false);
@@ -61,7 +62,7 @@ function ScreenName({ navigation }) {
       setIsBusy(true);
       await firestore.update_user({id: $.session.uid, username: username, name: name});
     } catch (e) {
-      console.log(e);
+      $.logger.error(e);
       $.display_error(toast, new Error("Failed to update username."));
     } finally {
       setIsBusy(false);

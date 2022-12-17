@@ -14,12 +14,13 @@ import Post from "../../components/Post";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import useCachedData from "../../hooks/useCachedData";
 import firestore from "../../firestore/firestore";
+import { FlashList } from "@shopify/flash-list";
 
 const fetch_sizes_by_number_columns = {};
-fetch_sizes_by_number_columns[1] = 8;
-fetch_sizes_by_number_columns[2] = 12;
-fetch_sizes_by_number_columns[3] = 21;
-fetch_sizes_by_number_columns[4] = 24;
+fetch_sizes_by_number_columns[1] = 16;
+fetch_sizes_by_number_columns[2] = 32;
+fetch_sizes_by_number_columns[3] = 32;
+fetch_sizes_by_number_columns[4] = 32;
 
 const HomeScreen = function({navigation, route}) {
   const { colors } = useTheme();
@@ -27,6 +28,7 @@ const HomeScreen = function({navigation, route}) {
   const [is_gridmenu_visible, set_is_gridmenu_visible] = useState(false);
 
   const {cache_data, cache_snap_data, cache_sync,cache_reset, cache_set} = useCachedData({
+    id: "home",
     is_refreshing: false,
     is_refresh_error: false,
     is_load_more_error: false,
@@ -70,6 +72,7 @@ const HomeScreen = function({navigation, route}) {
       }, cache_set);
       cache_sync();
     } catch (e) {
+      $.logger.error(e);
       cache_data.is_loading_more ? cache_data.is_load_more_error = true : cache_data.is_refresh_error = true;
       $.display_error(toast, new Error("Failed to load users."));
     } finally {
@@ -90,6 +93,8 @@ const HomeScreen = function({navigation, route}) {
   };
   
   const on_press_retry = function() {
+    cache_data.is_refresh_error = false;
+    cache_data.is_load_more_error = false;
     fetch();
   };
   
@@ -210,9 +215,8 @@ const HomeScreen = function({navigation, route}) {
         </Menu>
       </Appbar.Header>
       <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
-        <FlatList
+        <FlashList
           key={number_columns}
-          style={{flex: 1}}
           keyboardShouldPersistTaps="always"
           data={cache_snap_data.data}
           renderItem={render_post}
@@ -229,10 +233,14 @@ const HomeScreen = function({navigation, route}) {
             />
           }
           onEndReached={fetch_more}
-          removeClippedSubviews={true}
           numColumns={number_columns}
           horizontal={false}
-          onEndReachedThreshold={0.5}
+          onEndReachedThreshold={0.75}
+          estimatedItemSize={$.const.image_sizes[number_columns].height}
+          getItemType={(item) => {
+            return "photo";
+          }}
+          initialNumToRender={24}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>

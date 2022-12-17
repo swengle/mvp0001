@@ -27,6 +27,7 @@ const DiscoveryScreen = function({navigation, route}) {
   const [is_gridmenu_visible, set_is_gridmenu_visible] = useState(false);
 
   const {cache_data, cache_snap_data, cache_sync, cache_reset, cache_set} = useCachedData({
+    id: "home",
     is_refreshing: false,
     is_refresh_error: false,
     is_load_more_error: false,
@@ -70,7 +71,7 @@ const DiscoveryScreen = function({navigation, route}) {
       }, cache_set);
       cache_sync();
     } catch (e) {
-      console.log(e);
+      $.logger.error(e);
       cache_data.is_loading_more  ? cache_data.is_load_more_error = true : cache_data.is_refresh_error = true;
       $.display_error(toast, new Error("Failed to load users."));
     } finally {
@@ -91,6 +92,8 @@ const DiscoveryScreen = function({navigation, route}) {
   };
   
   const on_press_retry = function() {
+    cache_data.is_refresh_error = false;
+    cache_data.is_load_more_error = false;
     fetch();
   };
   

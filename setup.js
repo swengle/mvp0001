@@ -11,7 +11,6 @@ import { Platform, Linking } from 'react-native';
 import { proxy } from 'valtio';
 import { logger } from "react-native-logs";
 import axios from "axios";
-import Cache from "./cache";
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import Constants from 'expo-constants';
@@ -56,10 +55,10 @@ const pkg = (Constants.manifest && Constants.manifest.releaseChannel) ? Constant
 $.openAppSettings = () => {
   if (Platform.OS === 'ios') {
     Linking.openURL('app-settings:');
-  } else {
+  }
+  else {
     IntentLauncher.startActivityAsync(
-      IntentLauncher.ACTION_APPLICATION_DETAILS_SETTINGS,
-      { data: 'package:' + pkg },
+      IntentLauncher.ACTION_APPLICATION_DETAILS_SETTINGS, { data: 'package:' + pkg },
     );
   }
 };
@@ -73,9 +72,7 @@ $.display_error = function(toast, e) {
   toast.show(e.message, { type: "danger" });
 };
 
-$.auth = proxy({
-  cca2: "US"
-});
+$.auth = proxy({ cca2: "US" });
 $.app = proxy({});
 $.editor = proxy({});
 
@@ -93,7 +90,7 @@ $.get_current_user = function() {
 
 $.reset_editor = function() {
   _.each(_.keys($.editor), function(key) {
-    delete $.editor[key]; 
+    delete $.editor[key];
   });
 };
 
@@ -110,17 +107,19 @@ $.check_notification_permissions = async function() {
     if (doc_snap.exists()) {
       $.session.messaging_config = doc_snap.data();
       return;
-    } else {
+    }
+    else {
       await firestore.create_messaging_config({
         token: token
       });
     }
-  } else {
+  }
+  else {
     delete $.session.messaging_config;
   }
   return function() {
 
-  };      
+  };
 };
 
 export default $;

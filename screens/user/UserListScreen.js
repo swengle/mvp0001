@@ -14,12 +14,12 @@ import { Appbar, useTheme } from "react-native-paper";
 import firestore from "../../firestore/firestore";
 import useCachedData from "../../hooks/useCachedData";
 
-const FETCH_SIZE = 10;
+const FETCH_SIZE = 16;
 
 const UserListScreen = function({navigation, route}) {
   const { colors } = useTheme();
   
-  const {cache_data, cache_snap_data, cache_sync, cache_reset, cache_set} = useCachedData({
+  const {cache_data, cache_snap_data, cache_sync, cache_empty, cache_reset, cache_set} = useCachedData({
     is_refreshing: false,
     is_refresh_error: false,
     is_load_more_error: false,
@@ -27,7 +27,8 @@ const UserListScreen = function({navigation, route}) {
   });
   
   const toast = useToast();
-  const uid = route.params.uid;
+  const id = route.params.id;
+  const screen = route.params.screen;
 
   useEffect(() => {
     refresh();
@@ -37,33 +38,58 @@ const UserListScreen = function({navigation, route}) {
     if (cache_data.is_refreshing || cache_data.is_loading_more) {
       return;
     }
-    const q_relationship_args = [collection($.db, "relationship"), route.params.title === "Following" ? where("id", "==", uid) : where("uid", "==", uid), where("status", "==", "follow"), orderBy("updated_at", "desc"), limit(FETCH_SIZE)];
-    if (cache_data.cursor) {
-      q_relationship_args.push(startAfter(cache_data.cursor));
+    let q_args;
+    if (screen === "LikersScreen") {
+      q_args = [collection($.db, "reaction"), where("kind", "==", "like"), where("parent_id", "==", id), orderBy("created_at", "desc"), limit(FETCH_SIZE)];
+    } else {
+      q_args = [collection($.db, "relationship"), where("status", "==", "follow"), orderBy("updated_at", "desc"), limit(FETCH_SIZE)];
+      if (screen === "FollowingScreen") {
+        q_args.push(where("id", "==", id));
+      } else if (screen === "FollowersScreen") {
+        q_args.push(where("uid", "==", id));
+      }
     }
-    const q_relationship = query(...q_relationship_args);
+
+    if (cache_data.cursor) {
+      q_args.push(startAfter(cache_data.cursor));
+    }
+    
+    const q = query(...q_args);
+    
     cache_data.cursor ? cache_data.is_loading_more = true : cache_data.is_refreshing = true;
-    const relationships = [];
     try {
-      const snap_relationship = await getDocs(q_relationship);
+      const respone_docs = await getDocs(q);
       if (!cache_data.cursor) {
         cache_reset();
       }
-      _.each(snap_relationship.docs, function(doc_relationship) {
-        relationships.push(doc_relationship.data());
+      const data = [];
+      _.each(respone_docs.docs, function(doc) {
+        data.push(doc.data());
       });
-      await firestore.load_users({
-        ids: route.params.title === "Following" ? _.pluck(relationships, "uid") : _.pluck(relationships, "id")
-      }, cache_set);
+
+      if (_.size(data)) {
+        let user_ids;
+        if (screen === "FollowingScreen") {
+          user_ids = _.pluck(data, "uid");
+        } else if (screen === "FollowersScreen") {
+          user_ids = _.pluck(data, "id");
+        } else if (screen === "LikersScreen") {
+          user_ids = _.pluck(data, "uid");
+        }
+
+        await firestore.load_users({ ids : user_ids }, cache_set);
+      } else if (cache_data.is_refreshing) {
+        cache_empty();
+      }
       
-      if (_.size(snap_relationship.docs) === FETCH_SIZE) {
-        cache_data.cursor = _.last(snap_relationship.docs);
+      if (_.size(respone_docs.docs) === FETCH_SIZE) {
+        cache_data.cursor = _.last(respone_docs.docs);
       } else {
         cache_data.cursor = null;
       }
       cache_sync();
     } catch (e) {
-      console.log(e);
+      $.logger.error(e);
       cache_data.is_loading_more  ? cache_data.is_load_more_error = true : cache_data.is_refresh_error = true;
       $.display_error(toast, new Error("Failed to load users."));
     } finally {
@@ -84,6 +110,8 @@ const UserListScreen = function({navigation, route}) {
   };
   
   const on_press_retry = function() {
+    cache_data.is_refresh_error = false;
+    cache_data.is_load_more_error = false;
     fetch();
   };
   
@@ -92,14 +120,23 @@ const UserListScreen = function({navigation, route}) {
   };
 
   const render_user = function(row) {
-    return <User uid={row.item} navigation={navigation}/>;
+    return <User id={row.item} navigation={navigation}/>;
   };
+  
+  let title;
+  if (screen === "FollowingScreen") {
+    title = "Following";
+  } else if (screen === "FollowersScreen") {
+    title = "Followers";
+  } else if (screen === "LikersScreen") {
+    title = "Likers";
+  }
   
   return (
     <SafeAreaView style ={{flex: 1}} edges={['top', 'left', 'right']}>
       <Appbar.Header>
         <Appbar.BackAction onPress={on_press_back} />
-        <Appbar.Content title={route.params.title}  />
+        <Appbar.Content title={title}  />
       </Appbar.Header>
       <FlatList
         style={{flex: 1}}

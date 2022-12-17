@@ -70,7 +70,7 @@ const HistoryScreen = function({navigation, route}) {
       }, cache_set);
       cache_sync();
     } catch (e) {
-      console.log(e);
+      $.logger.error(e);
       cache_data.is_loading_more  ? cache_data.is_load_more_error = true : cache_data.is_refresh_error = true;
       $.display_error(toast, new Error("Failed to load users."));
     } finally {
@@ -91,6 +91,8 @@ const HistoryScreen = function({navigation, route}) {
   };
   
   const on_press_retry = function() {
+    cache_data.is_refresh_error = false;
+    cache_data.is_load_more_error = false;
     fetch();
   };
   
@@ -99,7 +101,7 @@ const HistoryScreen = function({navigation, route}) {
   };
   
   const render_post = function(row) {
-    return <Post navigation={navigation} id={row.item} number_columns={number_columns} is_history_screen={true}/>;
+    return <Post navigation={navigation} id={row.item} number_columns={number_columns} screen="HistoryScreen"/>;
   };
   
   const on_dismiss_gridmenu = function() {

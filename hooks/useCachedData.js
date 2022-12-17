@@ -11,34 +11,26 @@ const useCachedData = function(options) {
   const [cache_data] = useState(cached_datas_by_id[id] || proxy(_.extend(options, { id: id, data: null, entity_ids: {}, pending: [] })));
   cached_datas_by_id[id] = cache_data;
 
-  const snap_entities = useSnapshot(entities);
-
   useEffect(() => {
     return function() {
       // might need to add some clean up in the future
     };
   }, []);
 
-  const cache_sync = function() {
-    if (_.size(cache_data.pending)) {
-      if (cache_data.data === null || cache_data.is_refreshing) {
-        cache_data.is_reset = false;
-        cache_data.data = cache_data.pending;
-      }
-      else {
-        cache_data.data = [...cache_data.data, ...cache_data.pending];
-      }
-      cache_data.pending = [];
-    }
+  const cache_sync = function(index) {
+    useCachedData.cache_sync(cache_data, index);
   };
 
   const cache_reset = function() {
-    cache_data.entity_ids = {};
-    cache_data.pending = [];
+    useCachedData.cache_reset(cache_data);
+  };
+  
+  const cache_empty = function() {
+    useCachedData.cache_empty(cache_data);
   };
 
-  const cache_set = function(entity) {
-    return useCachedData.cache_set(entity, cache_data);
+  const cache_set = function(entity, options) {
+    return useCachedData.cache_set(entity, cache_data, options);
   };
 
   const unshift_entity_already_in_cache = function(id) {
@@ -46,21 +38,21 @@ const useCachedData = function(options) {
   };
 
   const cache_get = function(id) {
-    return entities[id];
+    return useCachedData.cache_get(id);
   };
 
   const cache_get_snap = function(id) {
-    return snap_entities[id];
+    return useCachedData.cache_get_snap(id);
   };
 
-  return { cache_data, cache_snap_data: useSnapshot(cache_data), cache_sync, cache_reset, cache_set, cache_get, cache_get_snap, unshift_entity_already_in_cache };
+  return { cache_data, cache_snap_data: useSnapshot(cache_data), cache_sync, cache_reset, cache_empty, cache_set, cache_get, cache_get_snap, unshift_entity_already_in_cache };
 };
 
 useCachedData.cache_data_get = function(id) {
   return cached_datas_by_id[id];
 };
 
-useCachedData.cache_set = function(entity, cache_data) {
+useCachedData.cache_set = function(entity, cache_data, options) {
   if (!entity.id) {
     throw new Error("WTF");
   }
@@ -73,10 +65,34 @@ useCachedData.cache_set = function(entity, cache_data) {
 
   if (cache_data && !cache_data.entity_ids[entity.id]) {
     cache_data.entity_ids[entity.id] = true;
-    cache_data.pending.push(entity.id);
+    if (options && options.is_skip_pending) {
+      if (!_.isArray(cache_data.data)) {
+        cache_data.data = [];
+      }
+      if (options && _.isNumber(options.index)) {
+        cache_data.data.splice(options.index, 0, entity.id);
+      } else {
+        cache_data.data.push(entity.id); 
+      }
+    } else {
+      if (options && _.isNumber(options.index)) {
+        cache_data.pending.splice(options.index, 0, entity.id);
+      } else {
+        cache_data.pending.push(entity.id); 
+      }
+    }
   }
-
   return entity;
+};
+
+useCachedData.cache_reset = function(cache_data) {
+  cache_data.entity_ids = {};
+  cache_data.pending = [];
+};
+
+useCachedData.cache_empty = function(cache_data) {
+  useCachedData.cache_reset(cache_data);
+  cache_data.data = [];
 };
 
 useCachedData.cache_unset = function(id) {
@@ -92,6 +108,23 @@ useCachedData.cache_unset = function(id) {
     }
   });
   delete entities[id];
+};
+
+useCachedData.cache_sync = function(cache_data, index) {
+  if (_.size(cache_data.pending)) {
+    if (cache_data.data === null || cache_data.is_refreshing) {
+      cache_data.is_reset = false;
+      cache_data.data = cache_data.pending;
+    }
+    else {
+      if (_.isNumber(index)) {
+        cache_data.data.splice(index+1, 0, ...cache_data.pending);
+      } else {
+        cache_data.data = [...cache_data.data, ...cache_data.pending];
+      }
+    }
+    cache_data.pending = [];
+  }
 };
 
 useCachedData.unshift_entity_already_in_cache = function(id, cache_data) {

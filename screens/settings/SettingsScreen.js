@@ -33,12 +33,11 @@ const SettingsScreen = function({navigation}) {
   const on_press_private = async function() {
     try {
       current_user.is_account_public = !current_user.is_account_public;
-      await firestore.update_user_account_privacy({
-        id: current_user.id,
+      await firestore.update_current_user_account_privacy({
         is_account_public: current_user.is_account_public
       });
     } catch (e) {
-      console.log(e);
+      $.logger.error(e);
       current_user.is_account_public = !current_user.is_account_public;
     }
   };

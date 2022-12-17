@@ -31,7 +31,7 @@ const get_relationship_button_text = function(status) {
   return status;
 };
 
-const User = function({uid, row_id, navigation}) {
+const User = function({id, row_id, navigation}) {
   const row = $.contacts_rows_by_id[row_id];
   
   const { colors } = useTheme();
@@ -39,13 +39,13 @@ const User = function({uid, row_id, navigation}) {
   const [busy_button_text, set_busy_button_text] = useState();
   
   const { cache_get, cache_get_snap } = useCachedData();
-  const user = cache_get(uid);
+  const user = cache_get(id);
   
   if (!user) {
     return null;
   }
   
-  const snap_user = cache_get_snap(uid);
+  const snap_user = cache_get_snap(id);
   
   const on_press_relationship = async function() {
     try {
@@ -60,18 +60,18 @@ const User = function({uid, row_id, navigation}) {
       }
       
       await firestore.update_relationship({
-        uid : uid,
+        id : id,
         action: action
       });
     } catch (e) {
-      console.log(e);
+      $.logger.error(e);
       set_busy_button_text(null);
       $.display_error(toast, new Error("Failed to update relationship."));
     }
   };
   
   const on_press_user = function() {
-    navigation.push("UserScreen", {uid: uid});
+    navigation.push("UserScreen", {id: id});
   };
   
 
@@ -85,7 +85,7 @@ const User = function({uid, row_id, navigation}) {
           {row && row.contact_name && <Text variant="labelMedium" style={{color: colors.outline}}><MaterialCommunityIcons name="account-box-outline" size={14} />{row.contact_name}</Text>}
         </View>
       </TouchableOpacity>
-      {(uid !== $.session.uid) && (
+      {(id !== $.session.uid) && (
         <View style={{flex: 3}}>
           <Button mode="contained" compact={true} onPress={on_press_relationship}>{busy_button_text ? busy_button_text : get_relationship_button_text(snap_user.outgoing_status)}</Button>
         </View>

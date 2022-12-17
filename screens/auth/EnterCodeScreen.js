@@ -59,7 +59,7 @@ const EnterCode = function({route, navigation}) {
         }
       }
     } catch (e) {
-      console.log(e);
+      $.logger.error(e);
       $.display_error(toast, new Error("Unable to validate code."));
       set_value("");
     } finally {

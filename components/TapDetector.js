@@ -1,4 +1,5 @@
 "use strict";
+import _ from "underscore";
 import { useRef } from "react";
 import { State, TapGestureHandler } from "react-native-gesture-handler";
 
@@ -8,13 +9,13 @@ const TapDetector = ({children, on_single_tap, on_double_tap}) => {
 
   const on_single_tap_innner = (event) => {
     if (event.nativeEvent.state === State.ACTIVE) {
-      on_single_tap();
+      _.isFunction(on_single_tap) && on_single_tap();
     }
   };
 
   const on_double_tap_inner = (event) => {
     if (event.nativeEvent.state === State.ACTIVE) {
-       on_double_tap();
+      _.isFunction(on_double_tap) && on_double_tap();
     }
   };
 

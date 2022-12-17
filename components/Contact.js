@@ -20,8 +20,9 @@ const Contact = function({row_id, navigation}) {
   const on_press_invite = async function() {
     try {
       row.invited_at = Timestamp.now();
-      await firestore.invite_contact({uid: $.session.uid, phones: row.parsed_number, name: row.contact_name});
+      await firestore.invite_contact({phones: row.parsed_number, name: row.contact_name});
     } catch (e) {
+      $.logger.error(e);
       delete row.invited_at;
       $.display_error(toast, new Error("Failed to send invite."));
     }

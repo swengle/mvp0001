@@ -27,7 +27,7 @@ const Row = function({ row, navigation, user_count }) {
   else if (row.id === "is_contacts_header") {
     return <Fragment><Text style={{margin: 10, marginTop: (user_count > 0) ? 50 : 20}} variant="titleSmall">INVITE CONTACTS</Text></Fragment>;
   } else if (row.uid) {
-    return <User uid={row.uid} row_id={row.id} navigation={navigation}/>;
+    return <User id={row.uid} row_id={row.id} navigation={navigation}/>;
   } else {
     return <Contact row_id={row.id} navigation={navigation}/>; 
   }
@@ -84,12 +84,12 @@ const ContactsScreen = function({ navigation }) {
           
           if (response.user_count > 0) {
             // starting at 1 since we added the header row
-            const uids = [];
+            const uids = {};
             for (let i=1; i<(response.user_count+1); i++) {
-              uids.push(response.data[i].uid);
+              uids[response.data[i].uid] = true;
             }
             await firestore.load_users({
-              ids: uids
+              ids: _.keys(uids)
             });
           }
           set_data(final_data);

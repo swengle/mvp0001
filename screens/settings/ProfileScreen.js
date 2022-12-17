@@ -44,14 +44,12 @@ const ProfileScreen = function({navigation}) {
   const [is_name_valid, set_is_name_valid] = useState(true);
   
   const save_image = async function(params) {
-    params.id = $.session.uid;
     try {
       set_is_saving_image(true); 
-      const result = await firestore.update_user(params);
-      _.extend(current_user, result);
+      await firestore.update_current_user(params);
       $.reset_editor();
     } catch (e) {
-      console.log(e);
+      $.logger.error(e);
       $.display_error(toast, new Error("Failed to update profile image."));
       set_is_saving_image_error(true);
     } finally {
@@ -100,7 +98,6 @@ const ProfileScreen = function({navigation}) {
   const on_press_save_profile = async function() {
     Keyboard.dismiss();
     const params = {};
-    params.id = $.session.uid;
     if (name !== current_user.name) {
       params.name = name;
     }
@@ -119,12 +116,10 @@ const ProfileScreen = function({navigation}) {
     try {
       set_is_saving_profile_error(false);
       set_is_saving_profile(true);
-      const result = await firestore.update_user(params);
-      console.log(result);
-      _.extend(current_user, result);
+      await firestore.update_current_user(params);
       set_is_dirty(false);
     } catch (e) {
-      console.log(e);
+      $.logger.error(e);
       $.display_error(toast, new Error("Failed to update user."));
       set_is_saving_profile_error(true);
     } finally {

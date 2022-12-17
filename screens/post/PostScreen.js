@@ -2,133 +2,16 @@
 import $ from "../../setup";
 import _ from "underscore";
 import { useEffect, useRef, useState } from "react";
-import { Animated, FlatList, KeyboardAvoidingView, Platform, View } from 'react-native';
-import { Avatar, Appbar, Button, Divider, Menu, Text, TextInput, useTheme } from "react-native-paper";
-import FastImage from 'react-native-fast-image';
+import { FlatList, KeyboardAvoidingView, Platform, View } from 'react-native';
+import { Appbar, Button, Menu, Text, TextInput } from "react-native-paper";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import firestore from "../../firestore/firestore";
 import { useToast } from "react-native-toast-notifications";
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { TouchableOpacity } from "react-native-gesture-handler";
-import TapDetector from "../../components/TapDetector";
-import LiveTimeAgo from "../../components/LiveTimeAgo";
 import useCachedData from "../../hooks/useCachedData";
+import Post from "../../components/Post";
 
 const Header = function({ id, navigation, ref_comment_input, on_press_comment }) {
-  const anim = useRef(new Animated.Value(1));
-  const { colors } = useTheme();
-  const [is_liking, set_is_liking] = useState(false);
-  const [is_unliking, set_is_unliking] = useState(false);
-  const { cache_get_snap } = useCachedData();
-  const snap_post = cache_get_snap(id);
-  
-  if (!snap_post) {
-    return null;
-  }
-  
-  const snap_user = cache_get_snap(snap_post.uid);
-  if (!snap_user || snap_post.is_deleted) { // can't check this earlier to keep hook counts the same
-    return null;
-  }
-  
-  const on_press_comments = function() {
-    console.log("comments");
-  };
-  
-  const on_press_comment_inner = function() {
-    on_press_comment();
-  };
-  
-  const on_press_likes = function() {
-    
-  };
-  
-  const on_press_like = async function() {
-    if (!snap_post.is_liked) {
-      Animated.sequence([
-        // increase size
-        Animated.timing(anim.current, {
-          toValue: 1.6, 
-          duration: 250,
-          useNativeDriver: true
-        }, ),
-        // decrease size
-        Animated.timing(anim.current, {
-          toValue: 1, 
-          duration: 250,
-          useNativeDriver: true
-        }),
-        
-      ]).start();
-        
-      set_is_liking(true);
-      try {
-        await firestore.like_post({
-          id: id
-        }); 
-      } catch (e) {
-        console.log(e);
-      } finally {
-        set_is_liking(false);
-      }
-    } else {
-      set_is_unliking(true);
-      try {
-        await firestore.unlike_post({
-          id: id
-        }); 
-      } catch (e) {
-        console.log(e);
-      } finally {
-        set_is_unliking(false);
-      }
-    }
-  };
-  
-  const on_press_user = function() {
-    navigation.push("UserScreen", {uid: snap_user.id});
-  };
-  
-  return (
-    <View>
-      <View style={{flexDirection: "row", alignItems: "center", padding: 10}}>
-        <TouchableOpacity onPress={on_press_user}>
-          <View style={{flex:1, flexDirection: "row", alignItems: "center"}}>
-            <Avatar.Image size={50} source={{uri: snap_user.profile_image_url}} style={{marginRight: 8}}/>
-            <Text variant="titleMedium">{snap_user.username}</Text>
-          </View>
-        </TouchableOpacity>
-        <View style={{flex:1}}/>
-        <LiveTimeAgo variant="labelSmall" date={snap_post.created_at.toDate()}/>
-      </View>
-      <Text style={{margin: 10, marginTop: 0}}>
-        This is some text to go with this thing! This is some text to go with this thing! This is some text to go
-      </Text>
-      <TapDetector on_double_tap={on_press_like}>
-        <FastImage source={{uri: snap_post.image_urls["1080"].url}} style={{width: $.const.image_sizes[1].width, height: $.const.image_sizes[1].height, borderWidth: 1, borderColor: colors.background}}/>
-      </TapDetector>
-      <View style={{flexDirection: "row", alignItems: "center", marginVertical: 4}}>
-        <TouchableOpacity onPress={on_press_like} style={{alignItems: "center", marginLeft: 10}} activeOpacity={0.8}>
-          <Animated.View style={{ transform: [{ scale: anim.current }] }}>
-            <Text><MaterialCommunityIcons name={((is_liking || snap_post.is_liked) && !is_unliking) ? "heart" : "heart-outline"} size={32} style={((is_liking || snap_post.is_liked) && !is_unliking) ? {color: "red"} : {}}/></Text>
-          </Animated.View>
-        </TouchableOpacity>
-        <TouchableOpacity style={{flexDirection: "row", alignItems: "center", padding: 10}} onPress={on_press_likes}>
-          <Text variant="titleSmall">2 </Text>
-          <Text>likes</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={on_press_comment_inner} style={{alignItems: "center", marginLeft: 20}} activeOpacity={0.8}>
-          <Text><MaterialCommunityIcons name={"comment-outline"} size={32} style={{}}/></Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={{flexDirection: "row", alignItems: "center", padding: 10}} onPress={on_press_comments}>
-          <Text variant="titleSmall">2 </Text>
-          <Text>comments</Text>
-        </TouchableOpacity>
-      </View>
-      <Divider/>
-      <Divider/>
-    </View>
-  );
+  return <Post id={id} navigation={navigation} number_columns={1} screen="PostScreen" on_press_comment={on_press_comment}/>;
 };
 
 const PostScreen = function({ navigation, route }) {
@@ -143,8 +26,9 @@ const PostScreen = function({ navigation, route }) {
     id = route.params.id;
     is_auto_focus = route.params.is_auto_focus;
   }
-  const { cache_snap_data, cache_get_snap } = useCachedData();
+  const { cache_snap_data, cache_get, cache_get_snap } = useCachedData();
   
+  const post = cache_get(id);
   const snap_post = cache_get_snap(id);
 
   useEffect(() => {
@@ -175,10 +59,10 @@ const PostScreen = function({ navigation, route }) {
     set_is_more_menu_visible(false);
     try {
       await firestore.delete_post({
-        id: id
+        post: post
       });
     } catch (e) {
-      console.log(e);
+      $.logger.error(e);
       $.display_error(toast, new Error("Failed to delete post."));
     }
   };
@@ -221,7 +105,7 @@ const PostScreen = function({ navigation, route }) {
     <SafeAreaView style ={{flex: 1}} edges={['top', 'left', 'right']}>
       <Appbar.Header>
         <Appbar.BackAction onPress={on_press_back} />
-        <Appbar.Content title="Post" />
+        <Appbar.Content title="" />
         {(snap_post && !snap_post.is_deleted) && (
           <Menu
             visible={is_more_menu_visible}

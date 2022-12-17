@@ -2,7 +2,7 @@
 import $ from "../../setup.js";
 import { useEffect, useState } from "react";
 import { Image, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
-import { ActivityIndicator, Appbar, Button, HelperText, IconButton } from "react-native-paper";
+import { ActivityIndicator, Appbar, Button, HelperText } from "react-native-paper";
 import { useSnapshot } from "valtio";
 import { subscribeKey } from 'valtio/utils';
 import { useToast } from "react-native-toast-notifications";
@@ -51,10 +51,10 @@ const DetailsScreen = function({navigation, route}) {
   const save = async function(response) {
     set_is_saving_failed(false);
     try {
-      await firestore.save_post({image: response, emoji: snap_editor.emoji});
+      await firestore.create_post({image: response, emoji: snap_editor.emoji});
       navigation.navigate("StackTabs");
     } catch (e) {
-      console.log(e);
+      $.logger.error(e);
       $.display_error(toast, new Error("Failed to save image."));
       set_is_saving_failed(true);
     } finally {
