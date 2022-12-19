@@ -15,7 +15,7 @@ const EmojiOverlay = function({ emoji_char, on_press, scaling_factor }) {
   const emoji_size = EMOJI_SIZE/scaling;
   
   const on_press_emoji = function() {
-    console.log("WTF");
+    on_press && on_press(emoji_char);
   };
   
 

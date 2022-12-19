@@ -9,7 +9,7 @@ import { Appbar, Avatar, Badge, Button, Chip, Divider, Text, TextInput, useTheme
 import * as Contacts from 'expo-contacts';
 import firestore from "../../firestore/firestore";
 import useCachedData from "../../hooks/useCachedData";
-import { collection, getDocs, limit, query, startAfter, where, orderBy } from "firebase/firestore";
+import { collection, collectionGroup, getDocs, limit, query, startAfter, where, orderBy } from "firebase/firestore";
 import Post from "../../components/Post";
 import Comment from "../../components/Comment";
 import ListFooter from "../../components/ListFooter";
@@ -177,7 +177,7 @@ const UserScreen= function({navigation, route}) {
       return;
     }
 
-    const query_args = [collection($.db, "reaction"), where("kind", "==", "comment"), where("parent_id", "==", user.current_post_id), orderBy("created_at", "desc"), limit(FETCH_SIZE+1)];
+    const query_args = [collectionGroup($.db, "reaction"), where("kind", "==", "comment"), where("parent_id", "==", user.current_post_id), orderBy("created_at", "desc"), limit(FETCH_SIZE+1)];
     if (cache_data.cursor) {
       query_args.push(startAfter(cache_data.cursor));
     }
@@ -316,7 +316,7 @@ const UserScreen= function({navigation, route}) {
   };
   
   const on_press_history = function() {
-    navigation.push("HistoryScreen"); 
+    navigation.push("PostListScreen", {screen: "HistoryScreen"}); 
   };
   
   const on_dismiss_more_menu = function() {

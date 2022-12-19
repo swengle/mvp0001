@@ -9,20 +9,16 @@ import { Camera } from 'expo-camera';
 import { Image } from "react-native";
 import TouchableOpacity  from "../components/TouchableOpacity";
 import NameScreen from "./auth/NameScreen";
-import HomeScreen from "./home/HomeScreen";
+import PostListScreen from "./post/PostListScreen";
 import AlertsScreen from "./alerts/AlertsScreen";
 import UserScreen from "./user/UserScreen";
 import UserListScreen from "./user/UserListScreen";
-import HistoryScreen from "./user/HistoryScreen";
-
-import DiscoverScreen from "./discover/DiscoverScreen";
 
 import SettingsScreen from "./settings/SettingsScreen";
 import ProfileScreen from "./settings/ProfileScreen";
 import NotificationsScreen from "./settings/NotificationsScreen";
 
 import PostScreen from "./post/PostScreen";
-
 import ContactsScreen from "./contacts/ContactsScreen";
 
 import EditorStack from "./EditorStack";
@@ -35,9 +31,11 @@ const HomeStackNavigator = createNativeStackNavigator();
 const HomeStack = function() {
   return (
     <HomeStackNavigator.Navigator>
-      <HomeStackNavigator.Screen name="HomeScreen" component={HomeScreen} options={{headerShown: false}}/>
+      <HomeStackNavigator.Screen name="PostListScreen" component={PostListScreen} options={{headerShown: false}}/>
       <HomeStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
       <HomeStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
+      <HomeStackNavigator.Screen name="SettingsStack" component={SettingsStack} options={{headerShown: false}}/>
+      <HomeStackNavigator.Screen name="ContactsStack" component={ContactsStack} options={{headerShown: false}}/>
       <HomeStackNavigator.Screen name="PostScreen" component={PostScreen} options={{headerShown: false}}/>
     </HomeStackNavigator.Navigator>
   );
@@ -47,22 +45,29 @@ const DiscoverStackNavigator = createNativeStackNavigator();
 const DiscoverStack = function() {
   return (
     <DiscoverStackNavigator.Navigator>
-      <DiscoverStackNavigator.Screen name="DiscoverScreen" component={DiscoverScreen} options={{headerShown: false}}/>
+      <DiscoverStackNavigator.Screen name="PostListScreen" component={PostListScreen} options={{headerShown: false}} initialParams={{ screen: "DiscoveryScreen" }}/>
       <DiscoverStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
       <DiscoverStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
+      <DiscoverStackNavigator.Screen name="SettingsStack" component={SettingsStack} options={{headerShown: false}}/>
+      <DiscoverStackNavigator.Screen name="ContactsStack" component={ContactsStack} options={{headerShown: false}}/>
       <DiscoverStackNavigator.Screen name="PostScreen" component={PostScreen} options={{headerShown: false}}/>
     </DiscoverStackNavigator.Navigator>
   );
 };
 
 
+const AlertsStackNavigator = createNativeStackNavigator();
 const AlertsStack = function() {
   return (
-    <HomeStackNavigator.Navigator>
-      <HomeStackNavigator.Screen name="AlertsScreen" component={AlertsScreen} options={{headerShown: false}}/>
-      <HomeStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
-      <HomeStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
-    </HomeStackNavigator.Navigator>
+    <AlertsStackNavigator.Navigator>
+      <AlertsStackNavigator.Screen name="AlertsScreen" component={AlertsScreen} options={{headerShown: false}}/>
+      <AlertsStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
+      <AlertsStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
+      <AlertsStackNavigator.Screen name="SettingsStack" component={SettingsStack} options={{headerShown: false}}/>
+      <AlertsStackNavigator.Screen name="ContactsStack" component={ContactsStack} options={{headerShown: false}}/>
+      <AlertsStackNavigator.Screen name="PostScreen" component={PostScreen} options={{headerShown: false}}/>
+      <AlertsStackNavigator.Screen name="PostListScreen" component={PostListScreen} options={{headerShown: false}}/>
+    </AlertsStackNavigator.Navigator>
   );
 };
 
@@ -94,10 +99,10 @@ const UserStack = function() {
     <UserStackNavigator.Navigator>
       <UserStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
-      <UserStackNavigator.Screen name="HistoryScreen" component={HistoryScreen} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="SettingsStack" component={SettingsStack} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="ContactsStack" component={ContactsStack} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="PostScreen" component={PostScreen} options={{headerShown: false}}/>
+      <UserStackNavigator.Screen name="PostListScreen" component={PostListScreen} options={{headerShown: false}}/>
     </UserStackNavigator.Navigator>
   );
 };

@@ -47,12 +47,6 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
   };
   
   const on_press_post = function() {
-    /*
-    if (screen === "HistoryScreen") {
-      navigation.push("PostScreen", {id: id});
-      return;
-    }
-    */
     navigation.push("UserScreen", {id: snap_user.id});
   };
   
@@ -118,6 +112,10 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
     navigation.push("UserListScreen", {screen: "LikersScreen", id: id});
   };
   
+  const on_press_emoji = function(emoji) {
+    navigation.push("PostListScreen", {screen: "EmojiScreen", emoji: emoji});
+  };
+  
   const like_count = _.isNumber(snap_post.like_count) ? snap_post.like_count : 0;
   const comment_count = _.isNumber(snap_post.comment_count) ? snap_post.comment_count : 0;
 
@@ -138,12 +136,12 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
               <FastImage source={{uri: snap_post.image_urls["1080"].url}} style={{width: $.const.image_sizes[1].width, height: $.const.image_sizes[1].height, borderWidth: 1, borderColor: colors.background}}/>
             </View>
           </TapDetector>
-          {_.isString(snap_post.emoji) && <EmojiOverlay emoji_char={snap_post.emoji} scaling_factor={1}/>}
+          {_.isString(snap_post.emoji) && <EmojiOverlay emoji_char={snap_post.emoji} scaling_factor={1}  on_press={on_press_emoji}/>}
         </View>
         <View style={{flexDirection: "row", alignItems: "center", marginVertical: 4}}>
           <TouchableOpacity onPress={on_press_like_inner} style={{alignItems: "center", marginLeft: 10}} activeOpacity={0.8}>
             <Animated.View style={{ transform: [{ scale: anim.current }] }}>
-              <Text><MaterialCommunityIcons name={((is_liking || snap_post.is_liked) && !is_unliking) ? "heart" : "heart-outline"} size={32} style={((is_liking || snap_post.is_liked) && !is_unliking) ? {color: "red"} : {}}/></Text>
+              <Text><MaterialCommunityIcons name={((is_liking || snap_post.is_liked) && !is_unliking) ? "heart" : "heart-outline"} size={32} style={((is_liking || snap_post.is_liked) && !is_unliking) ? {color: "red"} : {color: colors.outline}}/></Text>
             </Animated.View>
           </TouchableOpacity>
           {like_count > 0 && (
@@ -153,7 +151,7 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
             </TouchableOpacity>
           )}
           <TouchableOpacity onPress={on_press_comment_inner} style={{alignItems: "center", marginLeft: 20}} activeOpacity={0.8}>
-            <Text><MaterialCommunityIcons name={"comment-outline"} size={32}/></Text>
+            <Text><MaterialCommunityIcons name={"comment-outline"} size={32} color={colors.outline}/></Text>
           </TouchableOpacity>
           {comment_count > 0 && (
             <TouchableOpacity style={{flexDirection: "row", alignItems: "center", padding: 10}} onPress={on_press_comments_inner}>
@@ -210,7 +208,7 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
                 </TouchableOpacity>
               </View>
             </View>
-            {is_image_loaded && _.isString(snap_post.emoji) && <EmojiOverlay  emoji_char={snap_post.emoji} scaling_factor={number_columns}/>}
+            {is_image_loaded && _.isString(snap_post.emoji) && <EmojiOverlay  emoji_char={snap_post.emoji} scaling_factor={number_columns}  on_press={on_press_emoji}/>}
           </Fragment>
         )}
         {(is_image_loaded) && number_columns === 2 && (
@@ -250,7 +248,7 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
                 </TouchableOpacity>
               </View>
             </View>
-            {is_image_loaded && _.isString(snap_post.emoji) && <EmojiOverlay  emoji_char={snap_post.emoji} scaling_factor={number_columns}/>}
+            {is_image_loaded && _.isString(snap_post.emoji) && <EmojiOverlay  emoji_char={snap_post.emoji} scaling_factor={number_columns} on_press={on_press_emoji}/>}
           </Fragment>
         )}
         {(is_image_loaded) && number_columns === 3 && (
@@ -265,7 +263,7 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
               </TouchableOpacity>
             )}
             {true && <View style={{padding: 4}}><Text numberOfLines={1} style={[styles.image_text_3, styles.image_text, {width: "100%"}]}>This is some text to go with this thing! This is some text to go with this thing! This is some text to go</Text></View>}
-            {is_image_loaded && _.isString(snap_post.emoji) && <EmojiOverlay  emoji_char={snap_post.emoji} scaling_factor={number_columns}/>}
+            {is_image_loaded && _.isString(snap_post.emoji) && <EmojiOverlay  emoji_char={snap_post.emoji} scaling_factor={number_columns}  on_press={on_press_emoji}/>}
           </Fragment>
         )}
         {(is_image_loaded) && number_columns === 4 && (
@@ -280,7 +278,7 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
               </TouchableOpacity>
             )}
             {true && <View style={{padding: 4}}><Text numberOfLines={1} style={[styles.image_text_4, styles.image_text, {width: "100%"}]}>This is some text to go with this thing! This is some text to go with this thing! This is some text to go</Text></View>}
-            {is_image_loaded && _.isString(snap_post.emoji) && <EmojiOverlay  emoji_char={snap_post.emoji} scaling_factor={number_columns}/>}
+            {is_image_loaded && _.isString(snap_post.emoji) && <EmojiOverlay  emoji_char={snap_post.emoji} scaling_factor={number_columns} on_press={on_press_emoji}/>}
           </Fragment>
         )}
       </View>

@@ -60,7 +60,7 @@ function ScreenName({ navigation }) {
     const name = nameValue.trim();
     try {
       setIsBusy(true);
-      await firestore.update_user({id: $.session.uid, username: username, name: name});
+      await firestore.update_current_user({username: username, name: name});
     } catch (e) {
       $.logger.error(e);
       $.display_error(toast, new Error("Failed to update username."));

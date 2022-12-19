@@ -1,11 +1,10 @@
 "use strict";
+import $ from "../setup";
 import React, { useEffect, useRef, useState}  from "react";
 import _ from "underscore";
 import { FlatList, Keyboard, KeyboardAvoidingView, Platform, StyleSheet, View} from 'react-native';
 import TouchableOpacity  from "../components/TouchableOpacity";
-import { IconButton, Searchbar, Surface, Text } from 'react-native-paper';
-
-const DATA = require("./emoji.json");
+import { Chip, IconButton, Searchbar, Surface, Text, useTheme } from 'react-native-paper';
 
 const SELECT_ICON_SIZE = 16;
 const ROW_HEIGHT = 50;
@@ -43,6 +42,8 @@ const EmojiPart = function({emoji_data, onPress}) {
 };
 
 const EmojiSearch = function({emoji_data, onPress}) {
+  const { colors } = useTheme();
+  
   if (!emoji_data) {
     return;
   }
@@ -51,17 +52,21 @@ const EmojiSearch = function({emoji_data, onPress}) {
     onPress(emoji_data);
   };
   
-  const parts = [];
-  _.each(emoji_data.parts, function(part, index) {
-    parts.push(<Text key={index} style={index === emoji_data.part_index ? {fontWeight: "bold"} : null}>{part}</Text>);
+  const keywords = [];
+  _.each(emoji_data.keywords, function(keyword, keyword_index) {
+    if (emoji_data.parts_by_keyword[keyword]) {
+      const parts = [];
+      _.each(emoji_data.parts_by_keyword[keyword].parts, function(part, part_index) {
+        parts.push(<Text key={keyword_index + "" + part_index} style={{color: part_index === emoji_data.parts_by_keyword[keyword].part_index ? colors.primary : undefined, fontWeight: part_index === emoji_data.parts_by_keyword[keyword].part_index ? "bold" : undefined}}>{part}</Text>);
+      });
+      keywords.push(<Chip style={{marginLeft: 10}} mode="outlined">{parts}</Chip>);
+    }
   });
   
   return (
     <TouchableOpacity style={{flex:1, flexDirection: "row", alignItems: "center", height: ROW_HEIGHT, marginLeft: 10}} onPress={on_press}>
       <Text onPress={on_press} style={{ fontFamily: "TwemojiMozilla", fontSize: 40, width: 40}}>{emoji_data.char}</Text>
-      <Text style={{marginLeft: 8, textAlign: "left"}}>
-        {parts}
-      </Text>
+      {keywords}
     </TouchableOpacity>
   );
 };
@@ -122,20 +127,29 @@ const EmojiSelector = function({style, onLoaded, onSelect}) {
   
   useEffect(() => {
     if (searchText === "") {
-      prepData(DATA);
+      prepData($.emoji_data);
       return;
     } else {
       const result = [];
-      _.each(DATA, function(emoji_data) {
-        const idx = emoji_data.name.indexOf(searchText);
-        if (idx > -1) {
-          emoji_data.parts = emoji_data.name.split(new RegExp(`(${searchText})`, 'gi'));
-          _.each(emoji_data.parts, function(part, index) {
-            if (part === searchText) {
-              emoji_data.part_index = index;
+      _.each($.emoji_data, function(emoji_data) {
+        delete emoji_data.parts_by_keyword;
+        let is_candidate = false;
+        _.each(emoji_data.keywords, function(keyword) {
+          if (keyword.indexOf(searchText) === 0) {
+            is_candidate = true;
+            if (!emoji_data.parts_by_keyword) {
+              emoji_data.parts_by_keyword = {};
             }
-          });
-          result.push(emoji_data);
+            emoji_data.parts_by_keyword[keyword] = {parts: keyword.split(new RegExp(`(${searchText})`, 'gi'))};
+            _.each(emoji_data.parts_by_keyword[keyword].parts, function(part, index) {
+              if (part === searchText) {
+                emoji_data.parts_by_keyword[keyword].part_index = index;
+              }
+            });
+          }
+        });
+        if (is_candidate) {
+          result.push(emoji_data); 
         }
       });
       prepData(result);
@@ -200,7 +214,7 @@ const EmojiSelector = function({style, onLoaded, onSelect}) {
         data={emojis && emojis.data}
         renderItem={render}
         removeClippedSubviews={true}
-        keyExtractor={(item) => item.key}
+        keyExtractor={(item) => item.key || item.char}
         getItemLayout={get_item_layout}
       />
     </KeyboardAvoidingView>

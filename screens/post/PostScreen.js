@@ -3,12 +3,13 @@ import $ from "../../setup";
 import _ from "underscore";
 import { useEffect, useRef, useState } from "react";
 import { FlatList, KeyboardAvoidingView, Platform, View } from 'react-native';
-import { Appbar, Button, Menu, Text, TextInput } from "react-native-paper";
+import { Appbar, Button, Menu, TextInput } from "react-native-paper";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import firestore from "../../firestore/firestore";
 import { useToast } from "react-native-toast-notifications";
 import useCachedData from "../../hooks/useCachedData";
 import Post from "../../components/Post";
+import NotFound from "../../components/NotFound";
 
 const Header = function({ id, navigation, ref_comment_input, on_press_comment }) {
   return <Post id={id} navigation={navigation} number_columns={1} screen="PostScreen" on_press_comment={on_press_comment}/>;
@@ -116,9 +117,7 @@ const PostScreen = function({ navigation, route }) {
         )}
       </Appbar.Header>
       {(!snap_post || snap_post.is_deleted) && (
-        <View style={{flex: 1, alignItems: "center", justifyContent: "center"}}>
-          <Text variant="titleSmall">POST NOT FOUND</Text>
-        </View>
+        <NotFound/>
       )}
       {(snap_post && !snap_post.is_deleted) && (
         <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>

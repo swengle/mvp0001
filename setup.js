@@ -20,6 +20,11 @@ import * as timeago from 'timeago.js';
 import firestore from "./firestore/firestore";
 import { doc, getDoc } from "firebase/firestore";
 import useCachedData from "./hooks/useCachedData";
+$.emoji_data = require("./assets/emoji.json");
+$.emoji_data_by_char = {};
+_.each($.emoji_data, function(emoji) {
+  $.emoji_data_by_char[emoji.char] = emoji;
+});
 
 $.logger = logger.createLogger();
 
@@ -102,7 +107,7 @@ $.check_notification_permissions = async function() {
       return;
     }
     const token = await messaging().getToken();
-    const doc_ref = doc($.db, "messaging_config", token);
+    const doc_ref = doc($.db, "user/" + $.session.uid + "/messaging_config", token);
     const doc_snap = await getDoc(doc_ref);
     if (doc_snap.exists()) {
       $.session.messaging_config = doc_snap.data();

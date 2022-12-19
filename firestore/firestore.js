@@ -1,11 +1,12 @@
 "use strict";
 import _ from "underscore";
-import { collection, doc, documentId, getDoc, getDocs, increment, query, runTransaction, setDoc, updateDoc, where, Timestamp } from "firebase/firestore";
+import { collection, deleteField, doc, documentId, getDoc, getDocs, increment, query, runTransaction, setDoc, updateDoc, where, Timestamp } from "firebase/firestore";
 import { getHex } from "pastel-color";
 import useCachedData from "../hooks/useCachedData";
 
-
 let $, db;
+
+const max_query_in_size = 10;
 
 const firestore = {
   set_$: function(_$) {
@@ -13,13 +14,16 @@ const firestore = {
     db = $.db;
   },
   inflate_posts: async function(params, cache_set) {
-    const chunks = _.chunk(params.posts, 10);
+    if (_.size(params.posts) === 0) {
+      return;
+    }
+    const chunks = _.chunk(params.posts, max_query_in_size);
     await Promise.all(chunks.map(async (chunk) => {
       const reaction_chunk = [];
       _.each(chunk, function(post) {
-        reaction_chunk.push("like-" + $.session.uid + post.id);
+        reaction_chunk.push("like-" + post.id);
       });
-      const q_reaction = query(collection(db, "reaction"), where(documentId(), "in", reaction_chunk));
+      const q_reaction = query(collection(db, "user/" + $.session.uid + "/reaction"), where(documentId(), "in", reaction_chunk));
       const snap_reactions = await getDocs(q_reaction);
       const liked_by_post_id = {};
       _.each(snap_reactions.docs, function(reaction_doc) {
@@ -37,16 +41,19 @@ const firestore = {
     }));
   },
   inflate_comments: async function(params, cache_set) {
-    const chunks = _.chunk(params.comments, 10);
+    if (_.size(params.comments) === 0) {
+      return;
+    }
+    const chunks = _.chunk(params.comments, max_query_in_size);
     await Promise.all(chunks.map(async (chunk) => {
       const uids = {};
       const reaction_ids = [];
       _.each(chunk, function(comment) {
         uids[comment.uid] = true;
-        reaction_ids.push("like-" + $.session.uid + comment.id);
+        reaction_ids.push(comment.id);
       });
       
-      const q_reaction = query(collection(db, "reaction"), where(documentId(), "in", reaction_ids));
+      const q_reaction = query(collection(db,"user/" + $.session.uid + "/reaction"), where(documentId(), "in", reaction_ids));
       let snap_reactions;
       await Promise.all([
         await firestore.load_users({uids: _.keys(uids)}),
@@ -84,10 +91,12 @@ const firestore = {
         }
       });
       const q_user = query(collection(db, "user"), where(documentId(), "in", chunk));
-      const q_relationship = (options.relationship_by_uid || _.size(relationship_chunk) === 0) ? null : query(collection(db, "relationship"), where(documentId(), "in", relationship_chunk));
-      let snap_users, snap_relationships;
+      const q_relationship = (options.relationship_by_uid || _.size(relationship_chunk) === 0) ? null : query(collection(db, "user/" + $.session.uid + "/relationship"), where(documentId(), "in", relationship_chunk));
+      const q_current_post = query(collection(db, "post"), where("active_uid", "in", chunk));
+      let snap_users, snap_relationships, snap_posts;
       await Promise.all([
         snap_users = await getDocs(q_user),
+        snap_posts = await getDocs(q_current_post),
         snap_relationships = (q_relationship) ? await getDocs(q_relationship) : null
       ]);
 
@@ -100,51 +109,22 @@ const firestore = {
           });
         }
       }
-
-      const current_post_ids = [];
+      
+      const posts = [];
+      _.each(snap_posts.docs, function(post_doc) {
+        posts.push(post_doc.data());
+      });
+      
+      if (_.size(posts)) {
+        await firestore.inflate_posts({posts: posts}, useCachedData.cache_set);
+      }
+      
       _.each(snap_users.docs, function(doc_user) {
         const user = doc_user.data();
-        if (user.current_post_id) {
-          current_post_ids.push(user.current_post_id);
-        }
         uids.push(user.id);
         user.outgoing_status = options.relationship_by_uid[user.id] ? options.relationship_by_uid[user.id].status : "none";
         cache_set ? cache_set(user) : useCachedData.cache_set(user);
       });
-
-      if (_.size(current_post_ids)) {
-        const reaction_ids = [];
-        _.each(current_post_ids, function(post_id) {
-          reaction_ids.push("like-" + $.session.uid + post_id);
-        });
-        const q_post = query(collection(db, "post"), where(documentId(), "in", current_post_ids));
-        const q_reaction = query(collection(db, "reaction"), where(documentId(), "in", reaction_ids));
-
-        let snap_posts, snap_reactions;
-        await Promise.all([
-          snap_posts = await getDocs(q_post),
-          snap_reactions = await getDocs(q_reaction)
-        ]);
-        
-        const is_liked_by_post_id = {};
-        _.each(snap_reactions.docs, function(reaction_doc) {
-          if (reaction_doc.exists()) {
-            const reaction = reaction_doc.data();
-            is_liked_by_post_id[reaction.parent_id] = reaction.is_liked; 
-          }
-        });
-
-        _.each(snap_posts.docs, function(post_doc) {
-          if (!post_doc.exists()) {
-            return;
-          }
-          const post = post_doc.data();
-          post.is_liked = is_liked_by_post_id[post.id] || false;
-          useCachedData.cache_set(post);
-        });
-        
-      }
-    
     }));
     return uids;
   },
@@ -157,13 +137,13 @@ const firestore = {
     await setDoc(invited_doc_ref, invited, { merge: true });
   },
   create_messaging_config: async function(params) {
-    const messaging_config_doc_ref = doc(db, "messaging_config", params.token);
+    const messaging_config_doc_ref = doc(db, "user/" + $.session.uid + "/messaging_config", params.token);
     const update = { uid: $.session.uid, token: params.token, created_at: Timestamp.now() };
     await setDoc(messaging_config_doc_ref, update);
     $.session.messaging_config = update;
   },
   update_messaging_config: async function(params) {
-    const messaging_config_doc_ref = doc(db, "messaging_config", params.token);
+    const messaging_config_doc_ref = doc(db, "user/" + $.session.uid + "/messaging_config", params.token);
     const update = params.settings;
     update.updated_at = Timestamp.now();
     update.uid = $.session.uid;
@@ -182,16 +162,16 @@ const firestore = {
     $.get_current_user().is_account_public = params.is_account_public;
   },
   update_current_user: async function(params) {
-    const user_doc_ref = doc(db, "user", $.sesison.uid);
+    const user_doc_ref = doc(db, "user", $.session.uid);
     const user_doc_snap = await getDoc(user_doc_ref);
     if (!user_doc_snap.exists()) {
       throw new Error("User not found.");
     }
     const user = user_doc_snap.data();
     const user_updates = {};
-    await runTransaction(db, async (transaction) => {
-      let username,
+    let username,
         username_doc_ref;
+    await runTransaction(db, async (transaction) => {
       if (params.username) {
         username_doc_ref = doc(db, "username", params.username.toLowerCase());
         const username_doc_snap = await transaction.get(username_doc_ref);
@@ -201,7 +181,7 @@ const firestore = {
         username = {
           id: params.username.toLowerCase(),
           created_at: Timestamp.now(),
-          uid: params.id
+          uid: $.session.uid
         };
         user_updates.username = params.username;
         user_updates.change_username_at = Timestamp.now();
@@ -234,8 +214,8 @@ const firestore = {
   update_relationship: async function(params) {
     const current_user_ref = doc(db, "user", $.session.uid);
     const user_ref = doc(db, "user", params.id);
-    const relationship_doc_ref = doc(db, "relationship", $.session.uid + params.id);
-    const other_relationship_ref = doc(db, "relationship", params.id + $.session.uid);
+    const relationship_doc_ref = doc(db, "user" + $.session.uid + "/relationship", params.id);
+    const other_relationship_ref = doc(db, "user/" + params.id + "/relationship", $.session.uid);
 
     const current_user = $.get_current_user();
     const user = useCachedData.cache_get(params.id);
@@ -437,14 +417,13 @@ const firestore = {
     if (!current_user) {
       return;
     }
-    //const url_parts = params.image.url.split("/upload");
-    //const url = url_parts[0] + "/upload/c_scale,g_north_east,l_misc:circle_r39zfi.png,w_" + circle_size + ",h_" + circle_size + ",x_" + margin_circle_right + ",y_" + margin_circle_top + "/c_scale,g_north_east,l_emojis:" + params.emoji.id + ".png,w_" + icon_size + ",h_" + icon_size + ",x_" + margin_icon_right + ",y_" + margin_icon_top + url_parts[1];
     const url = params.image.url;
     const now = Timestamp.now();
     const new_id = doc(collection(db, "post")).id;
     const new_post = {
       id: new_id,
       uid: $.session.uid,
+      active_uid: $.session.uid,
       created_at: now,
       updated_at: now,
       image: params.image,
@@ -455,6 +434,19 @@ const firestore = {
     const new_post_ref = doc(db, "post", new_post.id);
     const current_user_ref = doc(db, "user", current_user.id);
     await runTransaction(db, async (transaction) => {
+      const current_user_doc = await transaction.get(current_user_ref);
+      const current_user = current_user_doc.data();
+      if (current_user.current_post_id) {
+        const prev_post_ref = doc(db, "post", current_user.current_post_id);
+        await transaction.update(prev_post_ref, {
+          active_uid: deleteField()
+        });
+        
+        await transaction.update(current_user_ref, {
+          post_count: increment(1),
+          current_post_id: new_post.id
+        });
+      }
       await transaction.set(new_post_ref, new_post);
       await transaction.update(current_user_ref, {
         post_count: increment(1),
@@ -468,7 +460,7 @@ const firestore = {
       current_post_id: new_post.id
     });
 
-    const history_cache_data = useCachedData.cache_data_get("history");
+    const history_cache_data = useCachedData.cache_data_get("HistoryScreen");
     if (history_cache_data) {
       useCachedData.unshift_entity_already_in_cache(new_post.id, history_cache_data);
     }
@@ -481,17 +473,19 @@ const firestore = {
       return;
     }
     const post_ref = doc(db, "post", params.post.id);
-    const current_user_ref = doc(db, "user", current_user.id);
+    const current_user_ref = doc(db, "user", $.session.uid);
 
     const user_update = {
       post_count: increment(-1)
     };
 
-    if (current_user.current_post_id === params.post.id) {
-      user_update.current_post_id = null;
-    }
-
     await runTransaction(db, async (transaction) => {
+      const current_user_doc = await transaction.get(current_user_ref);
+      const db_current_user = current_user_doc.data();
+      if (db_current_user.current_post_id === params.post.id) {
+        user_update.current_post_id = deleteField();
+      }
+      
       await transaction.delete(post_ref);
       await transaction.update(current_user_ref, user_update);
     });
@@ -515,7 +509,7 @@ const firestore = {
       return;
     }
     const parent_ref = doc(db, parent.kind === "comment" ? "reaction" : "post", parent.id);
-    const reaction_ref = doc(db, "reaction", "like-" + $.session.uid + parent.id);
+    const reaction_ref = doc(db, "user/" + $.session.uid + "/reaction", "like-" + parent.id);
     await runTransaction(db, async (transaction) => {
       const reaction_doc_snap = await transaction.get(reaction_ref);
       if (reaction_doc_snap.exists()) {
@@ -546,7 +540,7 @@ const firestore = {
     }
 
     const parent_ref = doc(db, parent.kind === "comment" ? "reaction" : "post", parent.id);
-    const reaction_ref = doc(db, "reaction", "like-" + $.session.uid + parent.id);
+    const reaction_ref = doc(db, "user/" + $.session.uid + "/reaction", "like-" + parent.id);
     await runTransaction(db, async (transaction) => {
       const reaction_doc_snap = await transaction.get(reaction_ref);
       if (reaction_doc_snap.exists()) {
@@ -579,7 +573,7 @@ const firestore = {
       depth: _.isNumber(parent.depth) ? (parent.depth + 1) : 0
     };
 
-    const new_reaction_ref = doc(db, "reaction", new_reaction.id);
+    const new_reaction_ref = doc(db, "user/" + $.session.uid + "/reaction", new_reaction.id);
     const parent_ref = doc(db, params.parent_type === "post" ? "post" : "reaction", params.parent_id);
     await runTransaction(db, async (transaction) => {
       await transaction.set(new_reaction_ref, new_reaction);
@@ -595,7 +589,7 @@ const firestore = {
     return new_reaction;
   },
   delete_comment: async function(params) {
-    const reaction_ref = doc(db, "reaction", params.comment.id);
+    const reaction_ref = doc(db, "user/" + $.session.uid + "/reaction", params.comment.id);
     const post_ref = doc(db, "post", params.parent_id);
     await runTransaction(db, async (transaction) => {
       await transaction.delete(reaction_ref);
