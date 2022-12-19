@@ -1,12 +1,13 @@
 "use strict";
 
 import $ from "../setup.js";
+import { Fragment } from "react";
 import { TransitionPresets } from '@react-navigation/stack';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme } from 'react-native-paper';
 import { Camera } from 'expo-camera';
-import { Image } from "react-native";
+import { Image, Text } from "react-native";
 import TouchableOpacity  from "../components/TouchableOpacity";
 import NameScreen from "./auth/NameScreen";
 import PostListScreen from "./post/PostListScreen";
@@ -109,6 +110,7 @@ const UserStack = function() {
 
 const TabNavigator = createBottomTabNavigator();
 const StackTabs = function({ navigation }) {
+  const snap_current_user = $.get_snap_current_user();
   const { colors, dark } = useTheme();
   const [permissionCamera, requestPermissionCamera] = Camera.useCameraPermissions();
   
@@ -137,9 +139,19 @@ const StackTabs = function({ navigation }) {
         <MaterialCommunityIcons name={focused ? "magnify" : "magnify"} color={focused ? colors.primary : colors.outline} size={26} />
       )}}/>
       <TabNavigator.Screen name="NewPostStack" component={HomeStack} options={{headerShown: false, tabBarLabel: "", tabBarIcon: ({ focused, color }) => (
-        <TouchableOpacity style={{postion: "absolute", width: 60, height: 60, top: 12}} onPress={on_press_new_post}>
-          {dark && <Image source={require("../assets/dark-puzzled-500.png")} style={{width: 60, height: 60}}/>}
-          {!dark && <Image source={require("../assets/light-puzzled-500.png")} style={{width: 60, height: 60}}/>}
+        <TouchableOpacity style={{postion: "absolute", width: 60, height: 60, top: 12, alignItems: "center"}} onPress={on_press_new_post}>
+          {(!snap_current_user || !snap_current_user.current_emoji) && (
+            <Fragment>
+              {dark && <Image source={require("../assets/dark-puzzled-500.png")} style={{width: 60, height: 60}}/>}
+              {!dark && <Image source={require("../assets/light-puzzled-500.png")} style={{width: 60, height: 60}}/>}
+            </Fragment>
+          )}
+          {(snap_current_user && snap_current_user.current_emoji) && (
+            <Fragment>
+              {dark && <Text style={{ fontFamily: "TwemojiMozilla", fontSize: 50}}>{snap_current_user.current_emoji}</Text>}
+              {!dark && <Text style={{ fontFamily: "TwemojiMozilla", fontSize: 50}}>{snap_current_user.current_emoji}</Text>}
+            </Fragment>
+          )}
         </TouchableOpacity>
       )}} 
       listeners={{

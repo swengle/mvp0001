@@ -134,6 +134,10 @@ const PostListScreen = function({navigation, route}) {
     $.app[screen + "_number_columns"] = num_cols; 
   };
   
+  const on_press_back = function() {
+    navigation.goBack();
+  };
+  
   const render_post = function(row) {
     return <Post navigation={navigation} id={row.item} number_columns={number_columns} screen={screen}/>;
   };
@@ -141,6 +145,7 @@ const PostListScreen = function({navigation, route}) {
   return (
     <SafeAreaView style ={{flex: 1}} edges={['top', 'left', 'right']}>
       <Appbar.Header>
+        {(screen !== "HomeScreen" && screen !== "DiscoveryScreen") && <Appbar.BackAction onPress={on_press_back} />}
         <Appbar.Content title={title} />
         <Menu
           anchorPosition="bottom"

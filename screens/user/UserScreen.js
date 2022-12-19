@@ -87,21 +87,18 @@ const Header = function({ id, navigation, ref_comment_input, on_press_comment, o
 
   return (
     <Fragment>
-      <View style={{margin: 10, marginBottom: 0, flexDirection: "row", alignItems: "center"}}>
+      <View style={{margin: 10, marginBottom: 0, flexDirection: "row", alignItems: "center", justifyContent: "center"}}>
         <Avatar.Image size={80} source={{uri: snap_user.profile_image_url}} />
   
-        <View style={{flex: 1, flexDirection: "column", marginHorizontal: 20}}>
-          {snap_user.name && (<Text variant="titleMedium" style={{marginVertical: 10, alignSelf: "center"}}>{snap_user.name}</Text>)}
-          {!snap_user.name && (<View style={{height: 24}}/>)}
-          <View style={{flex: 1, flexDirection: "row", alignItems: "center"}}>
-            <View style={{flex: 1}}>
-              <Chip style={{marginRight: 8, alignItems: "center"}} mode="outlined" onPress={on_press_followers}>{snap_user.follow_by_count || 0} {snap_user.follow_by_count === 1 ? "Follower" : "Followers"}</Chip>
-            </View>
-            <View style={{flex: 1}}>
-              <Chip style={{alignItems: "center"}} mode="outlined" onPress={on_press_following}>{snap_user.follow_count || 0} Following</Chip>
-            </View>
+        <View style={{flex: 1, flexDirection: "column"}}>
+          <View style={{flex: 1}}/>
+          {snap_user.name && (<Text variant="titleMedium" style={{alignSelf: "center", marginBottom: 4}}>{snap_user.name}</Text>)}
+          <View style={{flexDirection: "row", justifyContent: "center", height: 40}}>
+            <Chip style={{marginRight: 8, alignItems: "center"}} mode="outlined" onPress={on_press_followers}>{snap_user.follow_by_count || 0} {snap_user.follow_by_count === 1 ? "Follower" : "Followers"}</Chip>
+            <Chip style={{alignItems: "center"}} mode="outlined" onPress={on_press_following}>{snap_user.follow_count || 0} Following</Chip>
           </View>
-          {id !== $.session.uid && <Button mode="contained" style={{marginTop: 16, width: "100%"}} onPress={on_press_relationship}>{busy_button_text ? busy_button_text : get_relationship_button_text(snap_user.outgoing_status)}</Button>}
+          {(id !== $.session.uid) && <Button mode="contained" style={{marginTop: 10, marginHorizontal: 10}} onPress={on_press_relationship}>{busy_button_text ? busy_button_text : get_relationship_button_text(snap_user.outgoing_status)}</Button>}
+          <View style={{flex: 1}}/>
         </View>
       </View>
   

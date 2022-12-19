@@ -2,11 +2,13 @@
 import $ from "../setup";
 import React, { useEffect, useRef, useState}  from "react";
 import _ from "underscore";
-import { FlatList, Keyboard, KeyboardAvoidingView, Platform, StyleSheet, View} from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Platform, StyleSheet, View} from 'react-native';
 import TouchableOpacity  from "../components/TouchableOpacity";
 import { Chip, IconButton, Searchbar, Surface, Text, useTheme } from 'react-native-paper';
+import { FlashList } from "@shopify/flash-list";
 
 const SELECT_ICON_SIZE = 16;
+const ICON_WIDTH = 40;
 const ROW_HEIGHT = 50;
 
 const CATEGORIES = {
@@ -30,13 +32,15 @@ const EmojiTypeButton = function({category, onPress, isDisabled}) {
 };
 
 const EmojiPart = function({emoji_data, onPress}) {
+  const MARGIN_HORIZONTAL = ($.const.width - (ICON_WIDTH*6))/12;
+  
   const on_press = function() {
     onPress(emoji_data);
   };
   
   return (
-    <View key={emoji_data.char} style={{height: ROW_HEIGHT, flex: 1/6}}>
-      <Text onPress={on_press} style={{ fontFamily: "TwemojiMozilla", fontSize: 40}}>{emoji_data.char}</Text>
+    <View key={emoji_data.char} style={{height: ROW_HEIGHT, width: ICON_WIDTH, marginHorizontal: MARGIN_HORIZONTAL}}>
+      <Text onPress={on_press} style={{ fontFamily: "TwemojiMozilla", fontSize: ICON_WIDTH}}>{emoji_data.char}</Text>
     </View>
   );
 };
@@ -52,14 +56,15 @@ const EmojiSearch = function({emoji_data, onPress}) {
     onPress(emoji_data);
   };
   
+  let now = Date.now();
   const keywords = [];
   _.each(emoji_data.keywords, function(keyword, keyword_index) {
     if (emoji_data.parts_by_keyword[keyword]) {
       const parts = [];
       _.each(emoji_data.parts_by_keyword[keyword].parts, function(part, part_index) {
-        parts.push(<Text key={keyword_index + "" + part_index} style={{color: part_index === emoji_data.parts_by_keyword[keyword].part_index ? colors.primary : undefined, fontWeight: part_index === emoji_data.parts_by_keyword[keyword].part_index ? "bold" : undefined}}>{part}</Text>);
+        parts.push(<Text key={++now} style={{color: part_index === emoji_data.parts_by_keyword[keyword].part_index ? colors.primary : undefined, fontWeight: part_index === emoji_data.parts_by_keyword[keyword].part_index ? "bold" : undefined}}>{part}</Text>);
       });
-      keywords.push(<Chip style={{marginLeft: 10}} mode="outlined">{parts}</Chip>);
+      keywords.push(<Chip key={++now} style={{marginLeft: 10}} mode="outlined">{parts}</Chip>);
     }
   });
   
@@ -85,10 +90,10 @@ class Emoji extends React.PureComponent {
     const me = this;
     if (_.isArray(me.props.item)) {
       const rendered = [];
-      _.each(me.props.item, function(emoji_data) {
+      _.each(me.props.item, function(emoji_data, index) {
         rendered.push(<EmojiPart key={emoji_data.char} emoji_data={emoji_data} onPress={me.on_press_emoji}/>);
       });
-      return <View style={{flexDirection: "row", marginLeft: 10}}>{rendered}</View>;
+      return <View style={{flexDirection: "row"}}>{rendered}</View>;
     } else {
       return <EmojiSearch emoji_data={me.props.item} onPress={me.on_press_emoji}/>;
     }
@@ -187,11 +192,7 @@ const EmojiSelector = function({style, onLoaded, onSelect}) {
     }
     return <Emoji item={item.data} onPress={on_press} isInSearch={(searchText !== "")} index={index}/>;
   };
-  
-  const get_item_layout = function(data, index) {
-    return {length: 50, offset: 50 * index, index};
-  };
-  
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
       <Searchbar placeholder="Search" onChangeText={on_change_text} value={search_text} autoCapitalize={false} autoCorrect={false} autoComplete="none"/>
@@ -206,16 +207,15 @@ const EmojiSelector = function({style, onLoaded, onSelect}) {
         <EmojiTypeButton category={CATEGORIES.symbols} onPress={on_press_emoji_type} isDisabled={!emojis.enabled[CATEGORIES.symbols.name]}/>
         <EmojiTypeButton category={CATEGORIES.flags} onPress={on_press_emoji_type} isDisabled={!emojis.enabled[CATEGORIES.flags.name]}/>
       </View>
-      <FlatList
+      <FlashList
         keyboardShouldPersistTaps="always"
         key={searchText}
         ref={refFlatList}
-        style={{flex:1}}
         data={emojis && emojis.data}
         renderItem={render}
         removeClippedSubviews={true}
         keyExtractor={(item) => item.key || item.char}
-        getItemLayout={get_item_layout}
+        estimatedItemSize={49}
       />
     </KeyboardAvoidingView>
   );

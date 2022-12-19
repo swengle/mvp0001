@@ -129,7 +129,7 @@ const firestore = {
     return uids;
   },
   invite_contact: async function(params) {
-    const invited_doc_ref = doc(db, "invited", $.session.uid);
+    const invited_doc_ref = doc(db, "user/" + $.session.uid + "/invited/contacts");
     const invited = {};
     _.each(params.phones, function(phone) {
       invited[phone] = Timestamp.now();
@@ -194,10 +194,10 @@ const firestore = {
         user_updates.profile_image_url = params.profile_image_url;
       }
 
-      if (params.name) {
+      if (_.isString(params.name)) {
         user_updates.name = params.name;
       }
-      if (params.bio) {
+      if (_.isString(params.bio)) {
         user_updates.bio = params.bio;
       }
 
@@ -444,20 +444,24 @@ const firestore = {
         
         await transaction.update(current_user_ref, {
           post_count: increment(1),
-          current_post_id: new_post.id
+          current_post_id: new_post.id,
+          current_emoji: new_post.emoji
         });
       }
       await transaction.set(new_post_ref, new_post);
       await transaction.update(current_user_ref, {
         post_count: increment(1),
-        current_post_id: new_post.id
+        current_post_id: new_post.id,
+        current_emoji: new_post.emoji
       });
     });
 
     useCachedData.cache_set(new_post);
+    
     _.extend(current_user, {
       post_count: _.isNumber(current_user.post_count) ? ++current_user.post_count : 1,
-      current_post_id: new_post.id
+      current_post_id: new_post.id,
+      current_emoji: new_post.emoji
     });
 
     const history_cache_data = useCachedData.cache_data_get("HistoryScreen");
@@ -484,6 +488,7 @@ const firestore = {
       const db_current_user = current_user_doc.data();
       if (db_current_user.current_post_id === params.post.id) {
         user_update.current_post_id = deleteField();
+        user_update.current_emoji = deleteField();
       }
       
       await transaction.delete(post_ref);
@@ -494,7 +499,8 @@ const firestore = {
 
     _.isNumber(current_user.post_count) ? --current_user.post_count : current_user.post_count = 0;
     if (current_user.current_post_id === params.post.id) {
-      current_user.current_post_id = null;
+      delete current_user.current_post_id;
+      delete current_user.current_emoji;
     }
 
     return;

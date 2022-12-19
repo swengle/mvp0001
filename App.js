@@ -53,6 +53,7 @@ export default function App() {
   }
   
   $.const = {
+    width: width,
     image_sizes: {
       "1" : {
         width: width,

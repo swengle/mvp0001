@@ -23,8 +23,9 @@ const CameraScreen = function({ navigation, route }) {
   const snap_current_user = $.get_snap_current_user();
   const {width} = useWindowDimensions();
   const ref_camera = useRef();
-  const [cameraType, setCameraType] = useState(CameraType.back);
-  const [flashMode, setFlashMode] = useState(FlashMode.off);
+  const [camera_type, set_camera_type] = useState(CameraType.back);
+  const [flash_mode, setflash_mode] = useState(FlashMode.off);
+  const [is_taking_pic, set_is_taking_pic] = useState(false);
 
   const on_press_close = function() {
     navigation.goBack();
@@ -32,45 +33,52 @@ const CameraScreen = function({ navigation, route }) {
 
   let flash_icon, type_icon;
 
-  if (flashMode === FlashMode.on) {
+  if (flash_mode === FlashMode.on) {
     flash_icon = "flash";
-  } else if (flashMode === FlashMode.off) {
+  } else if (flash_mode === FlashMode.off) {
     flash_icon = "flash-off";
-  } else if (flashMode === FlashMode.auto) {
+  } else if (flash_mode === FlashMode.auto) {
     flash_icon = "flash-auto";
   }
   
-  if (cameraType === CameraType.back) {
+  if (camera_type === CameraType.back) {
     type_icon = "camera-rear";
-  } else if (CameraType.front) {
+  } else if (camera_type.front) {
     type_icon = "camera-front";
   }
   
   const on_press_flash = function() {
     if (flash_icon === "flash-off") {
-      setFlashMode(FlashMode.auto);
+      setflash_mode(FlashMode.auto);
       flash_icon = "flash-auto";
     } else if (flash_icon === "flash") {
-      setFlashMode(FlashMode.off);
+      setflash_mode(FlashMode.off);
       flash_icon = "flash-off";
     } else {
-      setFlashMode(FlashMode.on);
+      setflash_mode(FlashMode.on);
       flash_icon = "flash";
     }
   };
   
   const on_press_type = async function() {
     if (type_icon === "camera-rear") {
-      setCameraType(CameraType.front);
+      set_camera_type(CameraType.front);
       type_icon = "camera-front";
     } else {
-      setCameraType(CameraType.back);
+      set_camera_type(CameraType.back);
       type_icon = "camera-rear";
     }
   };
   
+  
+  
   const on_press_take_picture = async function() {
+    if (is_taking_pic) {
+      return;
+    }
+    set_is_taking_pic(true);
     ref_camera.current.takePictureAsync({quality: 0.85, onPictureSaved: async function(pic) {
+      set_is_taking_pic(false);
       let height;
       if (source === "new_pic") {
         height = 1350;
@@ -83,7 +91,7 @@ const CameraScreen = function({ navigation, route }) {
         uploader = $.profile_image_uploader;
       }
       uploader.upload(snap_current_user.id + (source === "new_pic" ? "/images" : "/profile_images"), $.editor.pic.uri, "image");
-      if (flashMode === FlashMode.off && source === "new_pic") {
+      if (flash_mode === FlashMode.off && source === "new_pic") {
         ref_camera.current.resumePreview();
       } else {
         if (source === "profile_image") {
@@ -93,7 +101,7 @@ const CameraScreen = function({ navigation, route }) {
         navigation.push("SelectEmojiScreen"); 
       }
     }});
-    if (flashMode === FlashMode.off) {
+    if (flash_mode === FlashMode.off) {
       ref_camera.current.pausePreview();
       if (source === "new_pic") {
         navigation.push("SelectEmojiScreen");
@@ -109,7 +117,7 @@ const CameraScreen = function({ navigation, route }) {
         return;
       }
       navigation.push("SelectEmojiScreen");
-    }, 500);
+    }, 1000);
     const result = await ImagePicker.launchImageLibraryAsync({quality: 0.8, mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: (source === "new_pic" ? false : true)});
     if (!result.canceled) {
       const asset = _.first(result.assets);
@@ -159,6 +167,7 @@ const CameraScreen = function({ navigation, route }) {
   };
 
   const camera_height = (source === "profile_image" ? width : Math.round((width/1080 * 1350)));
+
   
   return (
     <SafeAreaView style ={{flex: 1}}>
@@ -172,14 +181,14 @@ const CameraScreen = function({ navigation, route }) {
       
       <Camera
         ref={ref_camera}
-        type={cameraType}
-        flashMode={flashMode}
+        type={camera_type}
+        flash_mode={flash_mode}
         style={{height: camera_height, marginTop: 10}}
       />
       
       <View style={{position: "absolute", left: 0, bottom: 64, width: width}}>
         <View style={{flex: 1, alignItems: "center", justifyContent: "center"}}>
-          <IconButton icon="circle" mode="contained" onPress={on_press_take_picture} size={64}/>
+          <IconButton icon="circle" mode="contained" onPress={on_press_take_picture} size={64} disabled={is_taking_pic}/>
         </View>
       </View>
       
