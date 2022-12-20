@@ -2,7 +2,7 @@
 
 import $ from "../setup.js";
 import { Fragment } from "react";
-import { TransitionPresets } from '@react-navigation/stack';
+import { createStackNavigator, TransitionPresets } from '@react-navigation/stack';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useTheme } from 'react-native-paper';
@@ -26,12 +26,10 @@ import EditorStack from "./EditorStack";
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
-const Stack = createNativeStackNavigator();
-
-const HomeStackNavigator = createNativeStackNavigator();
+const HomeStackNavigator = createStackNavigator();
 const HomeStack = function() {
   return (
-    <HomeStackNavigator.Navigator>
+    <HomeStackNavigator.Navigator screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal', gestureResponseDistance: $.const.width }}>
       <HomeStackNavigator.Screen name="PostListScreen" component={PostListScreen} options={{headerShown: false}}/>
       <HomeStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
       <HomeStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
@@ -42,10 +40,10 @@ const HomeStack = function() {
   );
 };
 
-const DiscoverStackNavigator = createNativeStackNavigator();
+const DiscoverStackNavigator = createStackNavigator();
 const DiscoverStack = function() {
   return (
-    <DiscoverStackNavigator.Navigator>
+    <DiscoverStackNavigator.Navigator screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal', gestureResponseDistance: $.const.width }}>
       <DiscoverStackNavigator.Screen name="PostListScreen" component={PostListScreen} options={{headerShown: false}} initialParams={{ screen: "DiscoveryScreen" }}/>
       <DiscoverStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
       <DiscoverStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
@@ -57,10 +55,10 @@ const DiscoverStack = function() {
 };
 
 
-const AlertsStackNavigator = createNativeStackNavigator();
+const AlertsStackNavigator = createStackNavigator();
 const AlertsStack = function() {
   return (
-    <AlertsStackNavigator.Navigator>
+    <AlertsStackNavigator.Navigator screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal', gestureResponseDistance: $.const.width }}>
       <AlertsStackNavigator.Screen name="AlertsScreen" component={AlertsScreen} options={{headerShown: false}}/>
       <AlertsStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
       <AlertsStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
@@ -73,10 +71,10 @@ const AlertsStack = function() {
 };
 
 
-const SettingsStackNavigator =  createNativeStackNavigator();
+const SettingsStackNavigator =  createStackNavigator();
 const SettingsStack = function() {
   return (
-    <SettingsStackNavigator.Navigator>
+    <SettingsStackNavigator.Navigator screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal', gestureResponseDistance: $.const.width }}>
       <SettingsStackNavigator.Screen name="SettingsScreen" component={SettingsScreen} options={{headerShown: false}}/>
       <SettingsStackNavigator.Screen name="ProfileScreen" component={ProfileScreen} options={{headerShown: false}}/>
       <SettingsStackNavigator.Screen name="NotificationsScreen" component={NotificationsScreen} options={{headerShown: false}}/>
@@ -84,20 +82,20 @@ const SettingsStack = function() {
   );
 };
 
-const ContactsStackNavigator =  createNativeStackNavigator();
+const ContactsStackNavigator =  createStackNavigator();
 const ContactsStack = function() {
   return (
-    <ContactsStackNavigator.Navigator>
+    <ContactsStackNavigator.Navigator screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal', gestureResponseDistance: $.const.width }}>
       <ContactsStackNavigator.Screen name="ContactsScreen" component={ContactsScreen} options={{headerShown: false}}/>
     </ContactsStackNavigator.Navigator>
   );
 };
 
 
-const UserStackNavigator = createNativeStackNavigator();
+const UserStackNavigator = createStackNavigator();
 const UserStack = function() {
   return (
-    <UserStackNavigator.Navigator>
+    <UserStackNavigator.Navigator screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal', gestureResponseDistance: $.const.width }}>
       <UserStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="SettingsStack" component={SettingsStack} options={{headerShown: false}}/>
@@ -172,6 +170,7 @@ const StackTabs = function({ navigation }) {
   );
 };
 
+const MainStackNavigator = createStackNavigator();
 const MainStack = function() {
   const snap_current_user = $.get_snap_current_user();
   if (!snap_current_user) {
@@ -179,19 +178,19 @@ const MainStack = function() {
   }
 
   return (
-    <Stack.Navigator screenOptions={{headerShown: false, ...TransitionPresets.ModalPresentationIOS}}>
+    <MainStackNavigator.Navigator screenOptions={{headerShown: false, ...TransitionPresets.ModalPresentationIOS}}>
       {!snap_current_user.username && (
-        <Stack.Group>
-          <Stack.Screen name="NameScreen" component={NameScreen}/>
-        </Stack.Group>
+        <MainStackNavigator.Group>
+          <MainStackNavigator.Screen name="NameScreen" component={NameScreen}/>
+        </MainStackNavigator.Group>
       )}
       {snap_current_user.username && (
-        <Stack.Group>
-          <Stack.Screen name="StackTabs" component={StackTabs}/>
-          <Stack.Screen name="EditorStack" component={EditorStack} options={{gestureEnabled: false}}/>
-        </Stack.Group>
+        <MainStackNavigator.Group>
+          <MainStackNavigator.Screen name="StackTabs" component={StackTabs}/>
+          <MainStackNavigator.Screen name="EditorStack" component={EditorStack} options={{gestureEnabled: false}}/>
+        </MainStackNavigator.Group>
       )}
-    </Stack.Navigator>
+    </MainStackNavigator.Navigator>
   );
 };
 
