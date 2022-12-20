@@ -47,19 +47,19 @@ const firestore = {
     const chunks = _.chunk(params.comments, max_query_in_size);
     await Promise.all(chunks.map(async (chunk) => {
       const uids = {};
-      const reaction_ids = [];
+      const comment_ids = [];
       _.each(chunk, function(comment) {
         uids[comment.uid] = true;
-        reaction_ids.push(comment.id);
+        comment_ids.push("like-" + comment.id);
       });
-      
-      const q_reaction = query(collection(db,"user/" + $.session.uid + "/reaction"), where(documentId(), "in", reaction_ids));
+
+      const q_reaction = query(collection(db, "user/" + $.session.uid + "/reaction"), where(documentId(), "in", comment_ids));
       let snap_reactions;
       await Promise.all([
-        await firestore.load_users({uids: _.keys(uids)}),
+        await firestore.load_users({ uids: _.keys(uids) }),
         snap_reactions = await getDocs(q_reaction)
       ]);
-      
+
       const liked_by_comment_id = {};
       _.each(snap_reactions.docs, function(reaction_doc) {
         if (reaction_doc.exists()) {
@@ -69,10 +69,10 @@ const firestore = {
           }
         }
       });
-      
+
       _.each(chunk, function(comment) {
         comment.is_liked = liked_by_comment_id[comment.id] || false;
-        cache_set(comment, {is_unshift: true});
+        cache_set(comment, { is_unshift: true });
       });
     }));
   },
@@ -109,16 +109,16 @@ const firestore = {
           });
         }
       }
-      
+
       const posts = [];
       _.each(snap_posts.docs, function(post_doc) {
         posts.push(post_doc.data());
       });
-      
+
       if (_.size(posts)) {
-        await firestore.inflate_posts({posts: posts}, useCachedData.cache_set);
+        await firestore.inflate_posts({ posts: posts }, useCachedData.cache_set);
       }
-      
+
       _.each(snap_users.docs, function(doc_user) {
         const user = doc_user.data();
         uids.push(user.id);
@@ -138,7 +138,7 @@ const firestore = {
   },
   create_messaging_config: async function(params) {
     const messaging_config_doc_ref = doc(db, "user/" + $.session.uid + "/messaging_config", params.token);
-    const update = { uid: $.session.uid, token: params.token, created_at: Timestamp.now() };
+    const update = { uid: $.session.uid, token: params.token, created_at: Timestamp.now(), rev: 0 };
     await setDoc(messaging_config_doc_ref, update);
     $.session.messaging_config = update;
   },
@@ -147,7 +147,7 @@ const firestore = {
     const update = params.settings;
     update.updated_at = Timestamp.now();
     update.uid = $.session.uid;
-    await updateDoc(messaging_config_doc_ref, update);
+    await updateDoc(messaging_config_doc_ref, _.extend({ rev: increment(1) }, update));
     _.extend($.session.messaging_config, update);
   },
   is_username_available: async function(params) {
@@ -158,7 +158,7 @@ const firestore = {
   update_current_user_account_privacy: async function(params) {
     const user_doc_ref = doc(db, "user", $.session.uid);
     const update = { is_account_public: params.is_account_public };
-    await updateDoc(user_doc_ref, update);
+    await updateDoc(user_doc_ref, _.extend({ rev: increment(1) }, update));
     $.get_current_user().is_account_public = params.is_account_public;
   },
   update_current_user: async function(params) {
@@ -170,7 +170,7 @@ const firestore = {
     const user = user_doc_snap.data();
     const user_updates = {};
     let username,
-        username_doc_ref;
+      username_doc_ref;
     await runTransaction(db, async (transaction) => {
       if (params.username) {
         username_doc_ref = doc(db, "username", params.username.toLowerCase());
@@ -181,7 +181,8 @@ const firestore = {
         username = {
           id: params.username.toLowerCase(),
           created_at: Timestamp.now(),
-          uid: $.session.uid
+          uid: $.session.uid,
+          rev: 0
         };
         user_updates.username = params.username;
         user_updates.change_username_at = Timestamp.now();
@@ -202,11 +203,11 @@ const firestore = {
       }
 
       if (_.size(username)) {
-        transaction.set(username_doc_ref, username);
+        transaction.set(username_doc_ref, _.extend({ rev: increment(1) }, username));
       }
 
       if (_.size(user_updates)) {
-        transaction.update(user_doc_ref, user_updates);
+        transaction.update(user_doc_ref, _.extend({ rev: increment(1) }, user_updates));
       }
     });
     _.extend($.get_current_user(), user_updates);
@@ -232,9 +233,7 @@ const firestore = {
         if (other_relationship_doc_snap.exists()) {
           const other_relationship = other_relationship_doc_snap.data();
           if (other_relationship.status === "request") {
-            await transaction.set(relationship_doc_ref, {
-              id: user.id,
-              uid: current_user.id,
+            await transaction.update(other_relationship_ref, {
               updated_at: Timestamp.now(),
               status: params.action === "approve" ? "follow" : "none"
             });
@@ -250,15 +249,13 @@ const firestore = {
               _.isNumber(current_user_update.follow_by_count) ? ++current_user.follow_by_count : current_user.follow_by_count = 1;
               _.isNumber(user_update.follow_count) ? ++user.follow_count : current_user.follow_count = 1;
             }
-            await transaction.update(current_user_ref, current_user_update);
-            await transaction.update(user_ref, user_update);
+            await transaction.update(current_user_ref, _.extend({rev: increment(1)}, current_user_update));
+            await transaction.update(user_ref, _.extend({rev: increment(1)}, user_update));
           }
         }
         const relationship_doc_snap = getDoc(relationship_doc_ref);
-        const outgoing_status = relationship_doc_snap.exists() ? relationship_doc_snap.data().status : "none";
-
-        user.outgoing_status = outgoing_status;
-        return { outgoing_status: outgoing_status };
+        user.outgoing_status = relationship_doc_snap.exists() ? relationship_doc_snap.data().status : "none";
+        return { outgoing_status: user.outgoing_status };
       }
 
       const relationship_doc_snap = await transaction.get(relationship_doc_ref);
@@ -276,12 +273,22 @@ const firestore = {
       if (params.action === "follow") {
         if (!relationship || relationship.status === "none") {
           result.outgoing_status = user.is_account_public ? "follow" : "request";
-          await transaction.set(relationship_doc_ref, {
-            id: current_user.id,
-            uid: user.id,
-            updated_at: Timestamp.now(),
-            status: result.outgoing_status
-          });
+          if (relationship) {
+            await transaction.update(relationship_doc_ref, {
+              updated_at: Timestamp.now(),
+              status: result.outgoing_status,
+              rev: increment(1)
+            });
+          }
+          else {
+            await transaction.set(relationship_doc_ref, {
+              id: current_user.id,
+              uid: user.id,
+              updated_at: Timestamp.now(),
+              status: result.outgoing_status,
+              rev: 0
+            });
+          }
           const current_user_update = { updated_at: Timestamp.now() };
           if (user.is_account_public) {
             current_user_update.follow_count = increment(1);
@@ -292,7 +299,7 @@ const firestore = {
             _.isNumber(current_user.request_count) ? ++current_user.request_count : current_user.request_count = 0;
           }
 
-          await transaction.update(current_user_ref, current_user_update);
+          await transaction.update(current_user_ref, _.extend({rev: increment(1)}, current_user_update));
           const user_update = { updated_at: Timestamp.now() };
           if (user.is_account_public) {
             user_update.follow_by_count = increment(1);
@@ -302,18 +309,29 @@ const firestore = {
             user_update.request_by_count = increment(1);
             _.isNumber(user.request_by_count) ? ++user.request_by_count : user.request_by_count = 0;
           }
-          await transaction.update(user_ref, user_update);
+          await transaction.update(user_ref, _.extend({rev: increment(1)}, user_update));
         }
       }
       else if (params.action === "unfollow") {
         if (relationship && (relationship.status === "follow" || relationship.status === "request" || relationship.status === "ignore")) {
           result.outgoing_status = "none";
-          await transaction.set(relationship_doc_ref, {
-            id: current_user.id,
-            uid: user.id,
-            updated_at: Timestamp.now(),
-            status: result.outgoing_status
-          });
+          if (relationship) {
+            await transaction.update(relationship_doc_ref, {
+              updated_at: Timestamp.now(),
+              status: result.outgoing_status,
+              rev: increment(1)
+            });
+          }
+          else {
+            await transaction.set(relationship_doc_ref, {
+              id: current_user.id,
+              uid: user.id,
+              updated_at: Timestamp.now(),
+              status: result.outgoing_status,
+              rev: 0
+            });
+          }
+          
           const current_user_update = { updated_at: Timestamp.now() };
           const user_update = { updated_at: Timestamp.now() };
           if (relationship.status === "follow") {
@@ -334,27 +352,49 @@ const firestore = {
             _.isNumber(current_user.ignore_by_count) ? current_user.ignore_by_count-- : current_user.ignore_by_count = 0;
             _.isNumber(user.ignore_count) ? user.ignore_count-- : user.ignore_count = 0;
           }
-          await transaction.update(current_user_ref, current_user_update);
-          await transaction.update(user_ref, user_update);
+          await transaction.update(current_user_ref, _.extend({rev: increment(1)}, current_user_update));
+          await transaction.update(user_ref, _.extend({rev: increment(1)}, user_update));
         }
       }
       else if (params.action === "block") {
         if (!relationship || (relationship.status !== "block")) {
-          const other_relationship_ref = doc(db, "relationship", params.id + $.session.uid);
           result.outgoing_status = "block";
-          await transaction.set(relationship_doc_ref, {
-            id: current_user.id,
-            uid: user.id,
-            updated_at: Timestamp.now(),
-            status: result.outgoing_status
-          });
-          await transaction.set(other_relationship_ref, {
-            id: user.id,
-            uid: current_user.id,
-            updated_at: Timestamp.now(),
-            status: "none",
-            is_blocked: true
-          });
+          const other_relationship_doc_snap = await transaction.get(other_relationship_ref);
+          
+          if (relationship) {
+            await transaction.update(relationship_doc_ref, {
+              updated_at: Timestamp.now(),
+              status: result.outgoing_status,
+              rev: increment(1)
+            });   
+          } else {
+            await transaction.set(relationship_doc_ref, {
+              id: current_user.id,
+              uid: user.id,
+              updated_at: Timestamp.now(),
+              status: result.outgoing_status,
+              rev: 0
+            });    
+          }
+          
+          if (other_relationship_doc_snap.exists()) {
+            await transaction.update(other_relationship_ref, {
+              updated_at: Timestamp.now(),
+              status: "none",
+              is_blocked: true,
+              rev: increment(1)
+            });
+          } else {
+            await transaction.set(other_relationship_ref, {
+              id: user.id,
+              uid: current_user.id,
+              updated_at: Timestamp.now(),
+              status: "none",
+              is_blocked: true,
+              rev: 0
+            });
+          }
+        
           const current_user_update = { updated_at: Timestamp.now() };
           current_user_update.block_count = increment(1);
           if (relationship) {
@@ -367,7 +407,7 @@ const firestore = {
               _.isNumber(current_user.follow_count) ? current_user.request_count-- : current_user.request_count = 0;
             }
           }
-          await transaction.update(current_user_ref, current_user_update);
+          await transaction.update(current_user_ref, _.extend({rev: increment(0)}, current_user_update));
           const user_update = { updated_at: Timestamp.now() };
           if (relationship) {
             if (relationship.status === "follow") {
@@ -380,32 +420,30 @@ const firestore = {
             }
           }
           user_update.block_by_count = increment(1);
-          await transaction.update(user_ref, user_update);
+          await transaction.update(user_ref,  _.extend({rev: increment(0)}, user_update));
         }
       }
       else if (params.action === "unblock") {
         if (relationship && (relationship.status === "block")) {
           const other_relationship_ref = doc(db, "relationship", params.id + $.session.uid);
           result.outgoing_status = "none";
-          await transaction.set(relationship_doc_ref, {
-            id: current_user.id,
-            uid: user.id,
+          await transaction.update(relationship_doc_ref, {
             updated_at: Timestamp.now(),
-            status: result.outgoing_status
+            status: result.outgoing_status,
+            rev: increment(1)
           });
-          await transaction.set(other_relationship_ref, {
-            id: user.id,
-            uid: current_user.id,
+          await transaction.updater(other_relationship_ref, {
             updated_at: Timestamp.now(),
             status: "none",
-            is_blocked: false
+            is_blocked: false,
+            rev: increment(1)
           });
           const current_user_update = { updated_at: Timestamp.now() };
           current_user_update.block_count = increment(-1);
-          await transaction.update(current_user_ref, current_user_update);
+          await transaction.update(current_user_ref,  _.extend({rev: increment(0)}, current_user_update));
           const user_update = { updated_at: Timestamp.now() };
           user_update.block_by_count = increment(-1);
-          await transaction.update(user_ref, user_update);
+          await transaction.update(user_ref,  _.extend({rev: increment(0)}, user_update));
         }
       }
     });
@@ -422,6 +460,7 @@ const firestore = {
     const new_id = doc(collection(db, "post")).id;
     const new_post = {
       id: new_id,
+      kind: "post",
       uid: $.session.uid,
       active_uid: $.session.uid,
       created_at: now,
@@ -429,6 +468,7 @@ const firestore = {
       image: params.image,
       emoji: params.emoji,
       image_urls: { "1080": { url: url, width: params.image.width, height: params.image.height } },
+      rev: 0
     };
 
     const new_post_ref = doc(db, "post", new_post.id);
@@ -439,25 +479,28 @@ const firestore = {
       if (current_user.current_post_id) {
         const prev_post_ref = doc(db, "post", current_user.current_post_id);
         await transaction.update(prev_post_ref, {
-          active_uid: deleteField()
+          active_uid: deleteField(),
+          rev: increment(1)
         });
-        
+
         await transaction.update(current_user_ref, {
           post_count: increment(1),
           current_post_id: new_post.id,
-          current_emoji: new_post.emoji
+          current_emoji: new_post.emoji,
+          rev: increment(1)
         });
       }
       await transaction.set(new_post_ref, new_post);
       await transaction.update(current_user_ref, {
         post_count: increment(1),
         current_post_id: new_post.id,
-        current_emoji: new_post.emoji
+        current_emoji: new_post.emoji,
+        rev: increment(1)
       });
     });
 
     useCachedData.cache_set(new_post);
-    
+
     _.extend(current_user, {
       post_count: _.isNumber(current_user.post_count) ? ++current_user.post_count : 1,
       current_post_id: new_post.id,
@@ -490,9 +533,9 @@ const firestore = {
         user_update.current_post_id = deleteField();
         user_update.current_emoji = deleteField();
       }
-      
+
       await transaction.delete(post_ref);
-      await transaction.update(current_user_ref, user_update);
+      await transaction.update(current_user_ref, _.extend({rev: increment(1)}, user_update));
     });
 
     useCachedData.cache_unset(params.post.id);
@@ -514,22 +557,22 @@ const firestore = {
     if (!parent || parent.is_liked) {
       return;
     }
-    const parent_ref = doc(db, parent.kind === "comment" ? "reaction" : "post", parent.id);
+    const parent_ref = doc(db, parent.kind === "comment" ? "user/" + $.session.uid + "/reaction" : "post", parent.id);
     const reaction_ref = doc(db, "user/" + $.session.uid + "/reaction", "like-" + parent.id);
     await runTransaction(db, async (transaction) => {
       const reaction_doc_snap = await transaction.get(reaction_ref);
       if (reaction_doc_snap.exists()) {
         const reaction = reaction_doc_snap.data();
         if (!reaction.is_liked) {
-          await transaction.update(reaction_ref, { updated_at: Timestamp.now(), is_liked: true, like_count: increment(1) });
-          await transaction.update(parent_ref, { updated_at: Timestamp.now(), like_count: increment(1) });
+          await transaction.update(reaction_ref, { updated_at: Timestamp.now(), is_liked: true, like_count: increment(1), rev: increment(1) });
+          await transaction.update(parent_ref, { updated_at: Timestamp.now(), like_count: increment(1), rev: increment(1) });
           parent.is_liked = true;
           _.isNumber(parent.like_count) ? ++parent.like_count : parent.like_count = 1;
         }
       }
       else {
-        await transaction.set(reaction_ref, { uid: current_user.id, parent_id: parent.id, parent_kind: parent.kind === "comment" ? "reaction" : "post", is_liked: true, like_count: 1, unlike_count: 0, updated_at: Timestamp.now(), created_at: Timestamp.now(), kind: "like" });
-        await transaction.update(parent_ref, { updated_at: Timestamp.now(), like_count: increment(1) });
+        await transaction.set(reaction_ref, { uid: current_user.id, parent_id: parent.id, parent_kind: parent.kind === "comment" ? "reaction" : "post", is_liked: true, like_count: 1, unlike_count: 0, updated_at: Timestamp.now(), created_at: Timestamp.now(), kind: "like", rev: 0 });
+        await transaction.update(parent_ref, { updated_at: Timestamp.now(), like_count: increment(1), rev: increment(1) });
         parent.is_liked = true;
         _.isNumber(parent.like_count) ? ++parent.like_count : parent.like_count = 1;
       }
@@ -545,15 +588,15 @@ const firestore = {
       return;
     }
 
-    const parent_ref = doc(db, parent.kind === "comment" ? "reaction" : "post", parent.id);
+    const parent_ref = doc(db, parent.kind === "comment" ? "user/" + $.session.uid + "/reaction" : "post", parent.id);
     const reaction_ref = doc(db, "user/" + $.session.uid + "/reaction", "like-" + parent.id);
     await runTransaction(db, async (transaction) => {
       const reaction_doc_snap = await transaction.get(reaction_ref);
       if (reaction_doc_snap.exists()) {
         const reaction = reaction_doc_snap.data();
         if (reaction.is_liked) {
-          await transaction.update(reaction_ref, { updated_at: Timestamp.now(), is_liked: false, unlike_count: increment(1) });
-          await transaction.update(parent_ref, { updated_at: Timestamp.now(), like_count: increment(-1) });
+          await transaction.update(reaction_ref, { updated_at: Timestamp.now(), is_liked: false, rev: increment(1) });
+          await transaction.update(parent_ref, { updated_at: Timestamp.now(), like_count: increment(-1), rev: increment(1) });
           parent.is_liked = false;
           _.isNumber(parent.like_count) ? --parent.like_count : parent.like_count = 0;
         }
@@ -566,7 +609,7 @@ const firestore = {
       return;
     }
     const now = Timestamp.now();
-    const new_id = doc(collection(db, "reaction")).id;
+    const new_id = doc(collection(db, "user/" + $.session.uid + "/reaction")).id;
     const new_reaction = {
       id: new_id,
       parent_id: params.parent_id,
@@ -576,21 +619,24 @@ const firestore = {
       updated_at: now,
       kind: "comment",
       text: params.text,
-      depth: _.isNumber(parent.depth) ? (parent.depth + 1) : 0
+      depth: _.isNumber(parent.depth) ? (parent.depth + 1) : 0,
+      rev: 0
     };
 
     const new_reaction_ref = doc(db, "user/" + $.session.uid + "/reaction", new_reaction.id);
-    const parent_ref = doc(db, params.parent_type === "post" ? "post" : "reaction", params.parent_id);
+    const parent_ref = doc(db, params.parent_type === "post" ? "post" : "user/" + $.session.uid + "/reaction", params.parent_id);
+    
     await runTransaction(db, async (transaction) => {
       await transaction.set(new_reaction_ref, new_reaction);
       await transaction.update(parent_ref, {
-        comment_count: increment(1)
+        comment_count: increment(1),
+        rev: increment(1)
       });
     });
 
     _.isNumber(parent.comment_count) ? parent.comment_count++ : parent.comment_count = 1;
-    
-    cache_set(new_reaction, {is_skip_pending: true, index: index || 0});
+
+    cache_set(new_reaction, { is_skip_pending: true, index: index || 0 });
 
     return new_reaction;
   },
@@ -600,7 +646,8 @@ const firestore = {
     await runTransaction(db, async (transaction) => {
       await transaction.delete(reaction_ref);
       await transaction.update(post_ref, {
-        comment_count: increment(-1)
+        comment_count: increment(-1),
+        rev: increment(1)
       });
     });
     useCachedData.cache_unset(params.comment.id);

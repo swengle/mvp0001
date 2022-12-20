@@ -9,14 +9,14 @@ import { Appbar, Avatar, Badge, Button, Chip, Divider, Text, TextInput, useTheme
 import * as Contacts from 'expo-contacts';
 import firestore from "../../firestore/firestore";
 import useCachedData from "../../hooks/useCachedData";
-import { collection, collectionGroup, getDocs, limit, query, startAfter, where, orderBy } from "firebase/firestore";
+import { collectionGroup, getDocs, limit, query, startAfter, where, orderBy } from "firebase/firestore";
 import Post from "../../components/Post";
 import Comment from "../../components/Comment";
 import ListFooter from "../../components/ListFooter";
 
 
 const FETCH_SIZE = 16;
-const SUBCOMMENT_FETCH_SIZE = 16;
+const SUBCOMMENT_FETCH_SIZE = 1;
 
 const get_relationship_action = function(status) {
   if (status === "none" || status === "unfollow") {
@@ -132,6 +132,7 @@ const UserScreen= function({navigation, route}) {
   const ref_list = useRef();
   const ref_comment_input = useRef();
   const [is_sending_comment, set_is_sending_comment] = useState(false);
+  let input_focus_target;
   
   let id, is_tabs_screen;
   if (route.params && route.params.id) {
@@ -145,13 +146,12 @@ const UserScreen= function({navigation, route}) {
   let is_auto_focus = route.params && route.params.is_auto_focus;
 
   const {cache_data, cache_snap_data, cache_sync, cache_reset, cache_get, cache_get_snap, cache_set} = useCachedData({
-    cursor_ids: {},
-    subcomments: {},
     is_first_refresh: true,
     is_refreshing: false,
     is_refresh_error: false,
     is_load_more_error: false,
-    is_loading_more: false
+    is_loading_more: false,
+    fetchers: {}
   });
   
   const user = cache_get(id);
@@ -218,31 +218,30 @@ const UserScreen= function({navigation, route}) {
     }
   };
   
-  const fetch_subcomments = async function(parent_id, cursor_id, index) {
-    if (!cache_data.subcomments[parent_id]) {
-      cache_data.subcomments[parent_id] = {};
+  const fetch_subcomments = async function(parent_id, index) {
+    if (!cache_data.fetchers[parent_id]) {
+      cache_data.fetchers[parent_id] = {};
     }
-    if (cache_data.subcomments[parent_id].is_refreshing || cache_data.subcomments[parent_id].is_loading_more) {
+    if (cache_data.fetchers[parent_id].is_refreshing || cache_data.fetchers[parent_id].is_loading_more) {
       return;
     }
 
-    const query_args = [collection($.db, "reaction"), where("kind", "==", "comment"), where("parent_id", "==", parent_id), orderBy("created_at", "desc"), limit(SUBCOMMENT_FETCH_SIZE+1)];
-    if (cache_data.subcomments[parent_id].cursor) {
-      query_args.push(startAfter(cache_data.subcomments[parent_id].cursor));
+    const query_args = [collectionGroup($.db, "reaction"), where("kind", "==", "comment"), where("parent_id", "==", parent_id), orderBy("created_at", "desc"), limit(SUBCOMMENT_FETCH_SIZE+1)];
+    if (cache_data.fetchers[parent_id].cursor) {
+      query_args.push(startAfter(cache_data.fetchers[parent_id].cursor));
     }
     const q_comment = query(...query_args);
-    cache_data.subcomments[parent_id].cursor ? cache_data.subcomments[parent_id].is_loading_more = true : cache_data.subcomments[parent_id].is_refreshing = true;
+    cache_data.fetchers[parent_id].cursor ? cache_data.fetchers[parent_id].is_loading_more = true : cache_data.fetchers[parent_id].is_refreshing = true;
     const comments = [];
     try {
       const snap_comments = await getDocs(q_comment);
-      delete cache_data.cursor_ids[cursor_id];
       
       let docs = snap_comments.docs;
       if (_.size(docs) === (SUBCOMMENT_FETCH_SIZE + 1)) {
         docs = _.initial(docs);
-        cache_data.subcomments[parent_id].cursor = _.last(docs);
+        cache_data.fetchers[parent_id].cursor = _.last(docs);
       } else {
-        cache_data.subcomments[parent_id].cursor = null;
+        cache_data.fetchers[parent_id].cursor = null;
       }
       
       if (_.size(docs) === 0) {
@@ -253,11 +252,6 @@ const UserScreen= function({navigation, route}) {
         comments.push(doc_comment.data());
       });
       
-
-      if (cache_data.subcomments[parent_id].cursor) {
-        cache_data.cursor_ids[_.last(comments).id] = _.last(comments).id;
-      }
-      
       await firestore.inflate_comments({comments: comments}, cache_set);
       
       cache_sync(index);
@@ -265,13 +259,13 @@ const UserScreen= function({navigation, route}) {
       if (route.params && route.params.is_scroll_to_comments && cache_data.is_first_refresh) {
         scroll_to_index(0, 0.2, 400);
       }
-      cache_data.subcomments[parent_id].is_first_refresh = false;
+      cache_data.fetchers[parent_id].is_first_refresh = false;
     } catch (e) {
       $.logger.error(e);
-      cache_data.subcomments[parent_id].is_loading_more ? cache_data.subcomments[parent_id].is_load_more_error = true : cache_data.subcomments[parent_id].is_refresh_error = true;
+      cache_data.fetchers[parent_id].is_loading_more ? cache_data.fetchers[parent_id].is_load_more_error = true : cache_data.fetchers[parent_id].is_refresh_error = true;
       $.display_error(toast, new Error("Failed to load users."));
     } finally {
-      cache_data.subcomments[parent_id].is_loading_more ? cache_data.subcomments[parent_id].is_loading_more = false : cache_data.subcomments[parent_id].is_refreshing = false;
+      cache_data.fetchers[parent_id].is_loading_more ? cache_data.fetchers[parent_id].is_loading_more = false : cache_data.fetchers[parent_id].is_refreshing = false;
     }
   };
   
@@ -357,15 +351,15 @@ const UserScreen= function({navigation, route}) {
   
   const on_press_comment = function() {
     delete cache_data.active_comment_id;
+    input_focus_target = 0;
     ref_comment_input.current.focus();
-    scroll_to_index(0, 0.5, 400);
   };
   
-  const on_press_comment_on_comment = function(id, index) {
+  const on_press_reply = function(id, index) {
+    input_focus_target = index;
     ref_comment_input.current.focus();
     cache_data.active_comment_id = id;
     cache_data.active_comment_index = index;
-    scroll_to_index(index, 0.2, 400);
   };
   
   const scroll_to_index = function(index, view_position, delay) {
@@ -388,13 +382,13 @@ const UserScreen= function({navigation, route}) {
     scroll_to_index(0);
   };
   
-  const on_press_comments_on_comment = function(id, index) {
+  const on_press_replies = function(id, index) {
     cache_data.active_comment_index = index;
-    fetch_subcomments(id, null, index);
+    fetch_subcomments(id, index);
   };
   
-  const on_press_more = function(parent_id, id, index) {
-    fetch_subcomments(parent_id, cache_data.cursor_ids[id], index);
+  const on_press_more = function(parent_id, index) {
+    fetch_subcomments(parent_id, index);
   };
   
   const render_comment = function(row) {
@@ -402,11 +396,12 @@ const UserScreen= function({navigation, route}) {
       return <View style={{height: 100}}/>;
     }
 
-    return <Comment id={ row.item } index={ row.index } on_press_comment={on_press_comment_on_comment} on_press_comments={on_press_comments_on_comment} is_being_commented_on={cache_snap_data.active_comment_id === row.item} navigation={navigation} state={cache_data.subcomments[row.item]} on_press_more={cache_data.cursor_ids[row.item] ? on_press_more : undefined}/>;
+    return <Comment id={ row.item } index={ row.index } on_press_reply={on_press_reply} on_press_replies={on_press_replies} is_being_commented_on={cache_snap_data.active_comment_id === row.item} navigation={navigation} state={cache_data.fetchers[row.item]} on_press_more={(cache_data.fetchers[row.item] && cache_data.fetchers[row.item].cursor) ? on_press_more : undefined}/>;
   };
   
   const on_focus = function() {
     cache_data.is_commentbox_has_focus = true;
+    scroll_to_index(input_focus_target || 0, 0.5, 400);
   };
   
   const on_blur = function() {

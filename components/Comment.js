@@ -13,17 +13,16 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 const More = function({id, on_press_more, index}) {
   const { cache_get } = useCachedData();
   const item = cache_get(id);
-  const parent = cache_get(item.parent_id);
-  
+
   const on_press_more_inner = function() {
-    _.isFunction(on_press_more) && on_press_more(parent.id, id, index);
+    _.isFunction(on_press_more) && on_press_more(id, index);
   };
   
-  return <TouchableOpacity onPress={on_press_more_inner}><View style={{alignItems: "center", marginLeft: (parent.depth + 1) * 20}}><HelperText>More comments</HelperText></View></TouchableOpacity>;
+  return <TouchableOpacity onPress={on_press_more_inner}><View style={{alignItems: "center", marginLeft: item.depth * 20}}><HelperText>More replies</HelperText></View></TouchableOpacity>;
 };
 
 
-const Comment = function({id, index, navigation, on_press_like, on_press_comment, on_press_likes, on_press_comments, is_being_commented_on, state, on_press_more}) {
+const Comment = function({id, index, navigation, on_press_like, on_press_reply, on_press_likes, on_press_replies, is_being_commented_on, state, on_press_more}) {
   const { colors } = useTheme();
   const anim = useRef(new Animated.Value(1));
   const [is_liking, set_is_liking] = useState(false);
@@ -48,8 +47,8 @@ const Comment = function({id, index, navigation, on_press_like, on_press_comment
     navigation.push("UserScreen", {id: comment.uid});
   };
   
-  const on_press_comment_inner = function() {
-    _.isFunction(on_press_comment) && on_press_comment(comment.id, index);
+  const on_press_reply_inner = function() {
+    _.isFunction(on_press_reply) && on_press_reply(comment.id, index);
   };
   
   const on_press_like_inner = async function() {
@@ -100,15 +99,15 @@ const Comment = function({id, index, navigation, on_press_like, on_press_comment
     navigation.push("UserListScreen", {screen: "LikersScreen", id: id});
   };
   
-  const on_press_comments_inner = function() {
-    _.isFunction(on_press_comments) && on_press_comments(id, index);
+  const on_press_replies_inner = function() {
+    _.isFunction(on_press_replies) && on_press_replies(id, index);
   };
   
   const like_count = _.isNumber(comment_snap.like_count) ? comment_snap.like_count : 0;
   const comment_count = _.isNumber(comment_snap.comment_count) ? comment_snap.comment_count : 0;
   
   const inner = (
-    <View style={{padding: 10, marginLeft: (comment_snap.depth || 0) * 20 }}>
+    <View style={{padding: 10, marginLeft: comment_snap.depth * 20 }}>
       {is_being_commented_on && (
         <HelperText style={{marginBottom: 10}}>Replying to</HelperText>
       )}
@@ -127,7 +126,9 @@ const Comment = function({id, index, navigation, on_press_like, on_press_comment
       <View style={{flexDirection: "row", marginTop: 4,  paddingLeft: 38, alignItems: "center"}}>
         <LiveTimeAgo style={{fontSize: 12}} date={comment_snap.created_at.toDate()} style={{marginRight: 16, fontSize: 12, color: colors.outline, width: 60}}/>
         <TouchableOpacity onPress={on_press_like_inner}>
+          <Animated.View style={{ transform: [{ scale: anim.current }] }}>
           <MaterialCommunityIcons name={((is_liking || comment_snap.is_liked) && !is_unliking) ? "heart" : "heart-outline"} size={20} style={((is_liking || comment_snap.is_liked) && !is_unliking) ? {color: "red"} : {color: colors.outline}}/>
+          </Animated.View>
         </TouchableOpacity>
         {like_count > 0 && (
           <TouchableOpacity onPress={on_press_likes_inner}>
@@ -135,12 +136,12 @@ const Comment = function({id, index, navigation, on_press_like, on_press_comment
           </TouchableOpacity>
         )}
         {like_count <= 0 && <View style={{width: 20}}/>}
-        <TouchableOpacity onPress={on_press_comment_inner}>
+        <TouchableOpacity onPress={on_press_reply_inner}>
           <MaterialCommunityIcons name={"comment-outline"} size={20} style={{color: colors.outline}}/>
         </TouchableOpacity>
         {(!state && comment_count > 0) && (
-          <TouchableOpacity onPress={on_press_comments_inner}>
-            <Text style={{fontSize: 12, color: colors.outline}}>  {comment_count} {comment_count === 1 ? "comment" : "comments"}</Text>
+          <TouchableOpacity onPress={on_press_replies_inner}>
+            <Text style={{fontSize: 12, color: colors.outline}}>  {comment_count} {comment_count === 1 ? "reply" : "replies"}</Text>
           </TouchableOpacity>
         )}
       </View>

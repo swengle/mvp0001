@@ -13,6 +13,7 @@ import LiveTimeAgo from "../components/LiveTimeAgo";
 import useCachedData from "../hooks/useCachedData";
 import EmojiOverlay from "../components/EmojiOverlay";
 
+
 const Post = function({id, navigation, number_columns, screen, on_press_comment, on_press_comments, on_press_like, on_press_likes}) {
   const anim = useRef(new Animated.Value(1));
   const [is_image_loaded, set_is_image_loaded] = useState(false);
@@ -164,6 +165,7 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
       >
     );
   }
+  
 
   return (
     <View>

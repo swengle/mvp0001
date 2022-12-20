@@ -56,7 +56,7 @@ useCachedData.cache_set = function(entity, cache_data, options) {
   if (!entity.id) {
     throw new Error("WTF");
   }
-  if (entities[entity.id]) {
+  if (entities[entity.id] && false) {
     _.extend(entities[entity.id], entity);
   }
   else {
