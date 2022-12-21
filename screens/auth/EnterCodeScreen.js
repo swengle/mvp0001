@@ -5,7 +5,6 @@ import { useState } from "react";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Platform, KeyboardAvoidingView, ScrollView, StyleSheet, View } from 'react-native';
 import TouchableOpacity  from "../../components/TouchableOpacity";
-import { getFunctions, httpsCallable } from "firebase/functions";
 import {
   CodeField,
   Cursor,
@@ -19,8 +18,7 @@ const CELL_COUNT = 5;
 import { useSnapshot } from "valtio";
 
 const auth = getAuth();
-const functions = getFunctions();
-const f_get_auth_token = httpsCallable(functions, 'get_auth_token');
+
 
 const EnterCode = function({route, navigation}) {
   const snap_auth = useSnapshot($.auth);
@@ -47,7 +45,7 @@ const EnterCode = function({route, navigation}) {
     try {
       set_is_busy(true);
       if (value === $.auth.pin.code) {
-        const response = await f_get_auth_token({ phone: $.auth.pin.phone });
+        const response = await $.cf.get_auth_token({ phone: $.auth.pin.phone });
         await signInWithCustomToken(auth, response.data.token);
         delete $.auth.pin;
         is_all_good = true;

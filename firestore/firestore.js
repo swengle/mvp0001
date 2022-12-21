@@ -473,6 +473,8 @@ const firestore = {
 
     const new_post_ref = doc(db, "post", new_post.id);
     const current_user_ref = doc(db, "user", current_user.id);
+    const current_user_counts_ref = doc(db, "user/" + current_user.id + "/counts/emojis");
+    
     await runTransaction(db, async (transaction) => {
       const current_user_doc = await transaction.get(current_user_ref);
       const current_user = current_user_doc.data();
@@ -497,6 +499,10 @@ const firestore = {
         current_emoji: new_post.emoji,
         rev: increment(1)
       });
+      
+      const counts_update = { rev: increment(1) };
+      counts_update[new_post.emoji] = increment(1);
+      await transaction.set(current_user_counts_ref, counts_update, {merge: true});
     });
 
     useCachedData.cache_set(new_post);
@@ -521,10 +527,21 @@ const firestore = {
     }
     const post_ref = doc(db, "post", params.post.id);
     const current_user_ref = doc(db, "user", $.session.uid);
-
+    const current_user_counts_ref = doc(db, "user/" + $.session.uid + "/counts/emojis");
+    
+    
     const user_update = {
       post_count: increment(-1)
     };
+    
+    const post_doc = await getDoc(post_ref);
+    if (!post_doc.exists()) {
+      return;
+    }
+    const post = post_doc.data();
+    
+    const counts_update = {};
+    counts_update[post.emoji] = increment(-1);
 
     await runTransaction(db, async (transaction) => {
       const current_user_doc = await transaction.get(current_user_ref);
@@ -536,6 +553,7 @@ const firestore = {
 
       await transaction.delete(post_ref);
       await transaction.update(current_user_ref, _.extend({rev: increment(1)}, user_update));
+      await transaction.update(current_user_counts_ref, _.extend({rev: increment(1)}, counts_update));
     });
 
     useCachedData.cache_unset(params.post.id);

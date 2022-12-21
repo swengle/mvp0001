@@ -2,33 +2,27 @@
 import $ from "../setup";
 import React, { useEffect, useRef, useState}  from "react";
 import _ from "underscore";
-import { Keyboard, KeyboardAvoidingView, Platform, StyleSheet, View} from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Platform, View} from 'react-native';
 import TouchableOpacity  from "../components/TouchableOpacity";
-import { Chip, IconButton, Searchbar, Surface, Text, useTheme } from 'react-native-paper';
+import { Chip, Divider, Searchbar, Surface, Text, useTheme } from 'react-native-paper';
 import { FlashList } from "@shopify/flash-list";
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
-const SELECT_ICON_SIZE = 16;
 const ICON_WIDTH = 40;
 const ROW_HEIGHT = 50;
 
-const CATEGORIES = {
-  smileys: {name: "Smileys & Emotion", icon: "emoticon"},
-  people: {name: "People & Body", icon: "account-multiple"},
-  animals: {name: "Animals & Nature", icon: "dog"},
-  food: {name: "Food & Drink", icon: "food-apple"},
-  travel: {name: "Travel & Places", icon: "car"},
-  activities: {name: "Activities", icon: "basketball"},
-  objects: {name: "Objects", icon: "tshirt-crew"},
-  symbols: {name: "Symbols", icon: "symbol"},
-  flags: {name: "Flags", icon: "flag"}
-};
-
-const EmojiTypeButton = function({category, onPress, isDisabled}) {
-  const on_press = function() {
-    onPress(category);
+const EmojiTypeButton = function({group, on_press, is_disabled, is_selected}) {
+  const { colors } = useTheme();
+  
+  const local_on_press = function() {
+    on_press(group);
   };
   
-  return <IconButton size={SELECT_ICON_SIZE} icon={category.icon} onPress={on_press} style={styles.icon_button} disabled={isDisabled}/>;
+  return (
+    <TouchableOpacity onPress={local_on_press} disabled={is_disabled} style={{flex: 1, alignItems: "center"}}> 
+      <MaterialCommunityIcons name={group.icon} color={is_disabled ? "red" : colors.outline} size={40}/>
+    </TouchableOpacity>
+  );
 };
 
 const EmojiPart = function({emoji_data, onPress}) {
@@ -111,17 +105,17 @@ const EmojiSelector = function({style, onLoaded, onSelect}) {
     const data = [];
     
     const grouped = _.groupBy(data_to_prep, "group");
-    _.each(_.keys(grouped), function(category, index) {
-      data.push({is_category: true, key: category});
+    _.each(_.keys(grouped), function(group, index) {
+      data.push({is_group: true, key: group});
       if (searchText === "") {
-        enabled[category] = true;
-        const chunks = _.chunk(grouped[category], 6);
+        enabled[group] = true;
+        const chunks = _.chunk(grouped[group], 6);
         _.each(chunks, function(emoji_data) {
           data.push({key: emoji_data[0].char, data: emoji_data});
         });
       } else {
-        _.each(grouped[category], function(emoji_data) {
-          enabled[emoji_data.category] = true;
+        _.each(grouped[group], function(emoji_data) {
+          enabled[emoji_data.group] = true;
           data.push({key: emoji_data.char, data: emoji_data});
         });
       }
@@ -171,11 +165,11 @@ const EmojiSelector = function({style, onLoaded, onSelect}) {
     setSearchText(val);
   };
   
-  const on_press_emoji_type = function(category) {
+  const on_press_emoji_type = function(group) {
     Keyboard.dismiss();
     let item;
     _.each(emojis.data, function(row, idx) {
-      if (row.is_category && row.key === category.name) {
+      if (row.is_group&& row.key === group.name) {
         item = row;
       }
     });
@@ -187,7 +181,7 @@ const EmojiSelector = function({style, onLoaded, onSelect}) {
   };
   
   const render = function({item, index}) {
-    if (item.is_category) {
+    if (item.is_group) {
       return <View style={{height: 50}}><Surface style={{paddingVertical: 2, paddingLeft: 10, marginVertical: index === 0 ? 0 : 10}}><Text variant="titleMedium" style={{}}>{item.key}</Text></Surface></View>;
     }
     return <Emoji item={item.data} onPress={on_press} isInSearch={(searchText !== "")} index={index}/>;
@@ -196,16 +190,17 @@ const EmojiSelector = function({style, onLoaded, onSelect}) {
   return (
     <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
       <Searchbar placeholder="Search" onChangeText={on_change_text} value={search_text} autoCapitalize={false} autoCorrect={false} autoComplete="none"/>
-      <View style={{flexDirection: "row", borderBottomWidth: StyleSheet.hairlineWidth}} keyboardShouldPersistTaps="always">
-        <EmojiTypeButton category={CATEGORIES.smileys} onPress={on_press_emoji_type} isDisabled={!emojis.enabled[CATEGORIES.smileys.name]}/>
-        <EmojiTypeButton category={CATEGORIES.people} onPress={on_press_emoji_type} isDisabled={!emojis.enabled[CATEGORIES.people.name]}/>
-        <EmojiTypeButton category={CATEGORIES.animals} onPress={on_press_emoji_type} isDisabled={!emojis.enabled[CATEGORIES.animals.name]}/>
-        <EmojiTypeButton category={CATEGORIES.food} onPress={on_press_emoji_type} isDisabled={!emojis.enabled[CATEGORIES.food.name]}/>
-        <EmojiTypeButton category={CATEGORIES.travel} onPress={on_press_emoji_type} isDisabled={!emojis.enabled[CATEGORIES.travel.name]}/>
-        <EmojiTypeButton category={CATEGORIES.activities} onPress={on_press_emoji_type} isDisabled={!emojis.enabled[CATEGORIES.activities.name]}/>
-        <EmojiTypeButton category={CATEGORIES.objects} onPress={on_press_emoji_type} isDisabled={!emojis.enabled[CATEGORIES.objects.name]}/>
-        <EmojiTypeButton category={CATEGORIES.symbols} onPress={on_press_emoji_type} isDisabled={!emojis.enabled[CATEGORIES.symbols.name]}/>
-        <EmojiTypeButton category={CATEGORIES.flags} onPress={on_press_emoji_type} isDisabled={!emojis.enabled[CATEGORIES.flags.name]}/>
+      <View style={{flexDirection: "row", paddingVertical: 4}} keyboardShouldPersistTaps="always">
+        <EmojiTypeButton group={$.const.emoji_groups.smileys} on_press={on_press_emoji_type} is_disabled={!emojis.enabled[$.const.emoji_groups.smileys.name]}/>
+        <EmojiTypeButton group={$.const.emoji_groups.people} on_press={on_press_emoji_type} is_disabled={!emojis.enabled[$.const.emoji_groups.people.name]}/>
+        <EmojiTypeButton group={$.const.emoji_groups.animals} on_press={on_press_emoji_type} is_disabled={!emojis.enabled[$.const.emoji_groups.animals.name]}/>
+        <EmojiTypeButton group={$.const.emoji_groups.food} on_press={on_press_emoji_type} is_disabled={!emojis.enabled[$.const.emoji_groups.food.name]}/>
+        <EmojiTypeButton group={$.const.emoji_groups.travel} on_press={on_press_emoji_type} is_disabled={!emojis.enabled[$.const.emoji_groups.travel.name]}/>
+        <EmojiTypeButton group={$.const.emoji_groups.activities} on_press={on_press_emoji_type} is_disabled={!emojis.enabled[$.const.emoji_groups.activities.name]}/>
+        <EmojiTypeButton group={$.const.emoji_groups.objects} on_press={on_press_emoji_type} is_disabled={!emojis.enabled[$.const.emoji_groups.objects.name]}/>
+        <EmojiTypeButton group={$.const.emoji_groups.symbols} on_press={on_press_emoji_type} is_disabled={!emojis.enabled[$.const.emoji_groups.symbols.name]}/>
+        <EmojiTypeButton group={$.const.emoji_groups.flags} on_press={on_press_emoji_type} is_disabled={!emojis.enabled[$.const.emoji_groups.flags.name]}/>
+        <Divider/>
       </View>
       <FlashList
         keyboardShouldPersistTaps="always"
@@ -220,11 +215,5 @@ const EmojiSelector = function({style, onLoaded, onSelect}) {
     </KeyboardAvoidingView>
   );
 };
-
- const styles = StyleSheet.create({
-   icon_button: {
-     margin: 4
-   }
- });
 
 export default EmojiSelector;

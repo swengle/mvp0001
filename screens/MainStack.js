@@ -26,7 +26,9 @@ import EditorStack from "./EditorStack";
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
-const HomeStackNavigator = createStackNavigator();
+const createNavigator = true ? createStackNavigator : createNativeStackNavigator;
+
+const HomeStackNavigator = createNavigator();
 const HomeStack = function() {
   return (
     <HomeStackNavigator.Navigator screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal', gestureResponseDistance: $.const.width }}>
@@ -40,7 +42,7 @@ const HomeStack = function() {
   );
 };
 
-const DiscoverStackNavigator = createStackNavigator();
+const DiscoverStackNavigator = createNavigator();
 const DiscoverStack = function() {
   return (
     <DiscoverStackNavigator.Navigator screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal', gestureResponseDistance: $.const.width }}>
@@ -55,7 +57,7 @@ const DiscoverStack = function() {
 };
 
 
-const AlertsStackNavigator = createStackNavigator();
+const AlertsStackNavigator = createNavigator();
 const AlertsStack = function() {
   return (
     <AlertsStackNavigator.Navigator screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal', gestureResponseDistance: $.const.width }}>
@@ -71,7 +73,7 @@ const AlertsStack = function() {
 };
 
 
-const SettingsStackNavigator =  createStackNavigator();
+const SettingsStackNavigator =  createNavigator();
 const SettingsStack = function() {
   return (
     <SettingsStackNavigator.Navigator screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal', gestureResponseDistance: $.const.width }}>
@@ -82,7 +84,7 @@ const SettingsStack = function() {
   );
 };
 
-const ContactsStackNavigator =  createStackNavigator();
+const ContactsStackNavigator =  createNavigator();
 const ContactsStack = function() {
   return (
     <ContactsStackNavigator.Navigator screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal', gestureResponseDistance: $.const.width }}>
@@ -92,7 +94,7 @@ const ContactsStack = function() {
 };
 
 
-const UserStackNavigator = createStackNavigator();
+const UserStackNavigator = createNavigator();
 const UserStack = function() {
   return (
     <UserStackNavigator.Navigator screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal', gestureResponseDistance: $.const.width }}>
@@ -170,7 +172,7 @@ const StackTabs = function({ navigation }) {
   );
 };
 
-const MainStackNavigator = createStackNavigator();
+const MainStackNavigator = createNavigator();
 const MainStack = function() {
   const snap_current_user = $.get_snap_current_user();
   if (!snap_current_user) {

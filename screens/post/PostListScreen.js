@@ -2,7 +2,7 @@
 import $ from "../../setup";
 import { useState } from "react";
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { KeyboardAvoidingView, Platform, View } from "react-native";
+import { View } from "react-native";
 import { Appbar, Menu, Text } from "react-native-paper";
 import GridMenu from "../../components/GridMenu";
 import PostList from "../../components/PostList";
@@ -10,13 +10,13 @@ import PostList from "../../components/PostList";
 
 const PostListScreen = function({navigation, route}) {
   const screen = (route && route.params) ? route.params.screen : "HomeScreen";
-  let id, title, emoji_data;
+  let id, title, emoji;
   if (screen === "HomeScreen") {
     id = screen;
     title = "swengle";
   } else if (screen === "EmojiScreen") {
-    emoji_data = $.emoji_data_by_char[route.params.emoji];
-    title = <View style={{flexDirection: "row", alignItems: "center", justifyContent: "center"}}><Text style={{fontFamily: "TwemojiMozilla", fontSize: 24}}>{emoji_data.char}</Text><Text variant="titleMedium"> {emoji_data.name}</Text></View>;
+    emoji = $.emoji_data_by_char[route.params.emoji];
+    title = <View style={{flexDirection: "row", alignItems: "center", justifyContent: "center"}}><Text style={{fontFamily: "TwemojiMozilla", fontSize: 24}}>{emoji.char}</Text><Text variant="titleMedium"> {emoji.name}</Text></View>;
   } else if (screen === "DiscoveryScreen") {
     title = "Discovery";
   } else if (screen === "HistoryScreen") {
@@ -28,8 +28,9 @@ const PostListScreen = function({navigation, route}) {
   
   const [number_columns, set_number_columns] = useState($.app[screen + "_number_columns"] || 3);
   const [is_gridmenu_visible, set_is_gridmenu_visible] = useState(false);
-  const [seg_value, set_seg_value] = useState(screen === "EmojiScreen" ? "everyone" : undefined);
-
+  const [emoji_screen_state, set_emoji_screen_state] = useState(screen === "EmojiScreen" ? {
+    segment_value: "everyone" 
+  } : {});
 
   const on_dismiss_gridmenu = function() {
     set_is_gridmenu_visible(false);
@@ -48,14 +49,10 @@ const PostListScreen = function({navigation, route}) {
   const on_press_back = function() {
     navigation.goBack();
   };
-  
-  const on_seg_change = function(value) {
-    set_seg_value(value);
-  };
 
   return (
     <SafeAreaView style ={{flex: 1}} edges={['top', 'left', 'right']}>
-      <Appbar.Header style={{zIndex: 49}}>
+      <Appbar.Header>
         {(screen !== "HomeScreen" && screen !== "DiscoveryScreen") && <Appbar.BackAction onPress={on_press_back} />}
         <Appbar.Content title={title} />
         <Menu
@@ -66,9 +63,9 @@ const PostListScreen = function({navigation, route}) {
           <GridMenu on_press_grid={on_press_grid}/>
         </Menu>
       </Appbar.Header>
-      {!seg_value && <PostList id={id} screen={screen} navigation={navigation} number_columns={number_columns} emoji={emoji_data}/>}
-      {seg_value === "everyone" && <PostList id={"emoji-everyone"} screen={screen} navigation={navigation} number_columns={number_columns} emoji={emoji_data} on_seg_change={on_seg_change} seg_value={seg_value}/>}
-      {seg_value === "you" && <PostList id={"emoji-you"} screen={screen} navigation={navigation} number_columns={number_columns} emoji={emoji_data} on_seg_change={on_seg_change} seg_value={seg_value}/>}
+      {!emoji_screen_state.segment_value && <PostList id={id} screen={screen} navigation={navigation} number_columns={number_columns} emoji={emoji}/>}
+      {emoji_screen_state.segment_value === "everyone" && <PostList id={"emoji-everyone"} screen={screen} navigation={navigation} number_columns={number_columns} emoji={emoji} set_emoji_screen_state={set_emoji_screen_state} emoji_screen_state={emoji_screen_state}/>}
+      {emoji_screen_state.segment_value === "you" && <PostList id={"emoji-you"} screen={screen} navigation={navigation} number_columns={number_columns} emoji={emoji} set_emoji_screen_state={set_emoji_screen_state} emoji_screen_state={emoji_screen_state}/>}
     </SafeAreaView>
   );
 };

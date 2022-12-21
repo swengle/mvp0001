@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Text } from "react-native-paper";
 
 const LiveTimeAgo = function({ date, style }) {
-  const [time, set_time] = useState(Date.now());
+  const [, set_time] = useState(Date.now());
   
   useEffect(() => {
     const interval = setInterval(() => set_time(Date.now()), 1000);

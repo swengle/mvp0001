@@ -1,6 +1,6 @@
 "use strict";
 import $ from "../../setup.js";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Image, useWindowDimensions, View } from 'react-native';
 import { ActivityIndicator, Appbar, Button, HelperText } from "react-native-paper";
 import { useSnapshot } from "valtio";
@@ -12,9 +12,6 @@ import EmojiOverlay from "../../components/EmojiOverlay";
 
 const DetailsScreen = function({navigation, route}) {
   const toast = useToast();
-  const [is_saving, set_is_saving] = useState(false);
-  const [is_saving_failed, set_is_saving_failed] = useState(false);
-  const [is_retry, set_is_retry] = useState(false);
   
   const snap_editor = useSnapshot($.editor);
   const snap_uploader = useSnapshot($.uploader.state);
@@ -23,46 +20,52 @@ const DetailsScreen = function({navigation, route}) {
 
   useEffect(() => {
     const unsubscribe = subscribeKey($.uploader.state, "response", (response) => {
-      if (is_saving) {
+      if ($.uploader.state.is_saving) {
         save(response);
       }
     });
-    return unsubscribe;
+    
+    return function() {
+      delete $.uploader.state.is_saving;
+      delete $.uploader.state.is_saving_failed;
+      delete $.uploader.state.is_retry;
+      unsubscribe();
+    };
   }, []);
   
   const on_press_send = async function() {
     if ($.uploader.state.hasErrored) {
-      set_is_saving_failed(true);
+      $.uploader.state.is_saving_failed = true;
       return;
     }
-    set_is_saving(true);
+    $.uploader.state.is_saving = true;
     if ($.uploader.state.response) {
       await save($.uploader.state.response);
     }
   };
   
   const save = async function(response) {
-    set_is_saving_failed(false);
+    $.uploader.state.is_saving_failed = false;
     try {
       await firestore.create_post({image: response, emoji: snap_editor.emoji.char});
       navigation.navigate("StackTabs");
     } catch (e) {
       $.logger.error(e);
       $.display_error(toast, new Error("Failed to save image."));
-      set_is_saving_failed(true);
+      $.uploader.state.is_saving_failed = true;
     } finally {
-      set_is_saving(false);
+      $.uploader.state.is_saving = false;
     }
   };
   
   const on_press_retry = async function() {
-    set_is_saving_failed(false);
-    set_is_retry(true);
+    $.uploader.state.is_saving_failed = false;
+    $.uploader.state.is_retry = true;
     if ($.uploader.state.hasErrored) {
       $.uploader.retry();
       return;
     } else {
-      set_is_saving(true);
+      $.uploader.state.is_saving = true;
       await save($.uploader.state.response);
     }
   };
@@ -75,7 +78,7 @@ const DetailsScreen = function({navigation, route}) {
   const picture_height = snap_editor.pic ? Math.round(snap_editor.pic.height * ratio) : 0;
   
   return (
-    <SafeAreaView style={{flex: 1}}>
+    <SafeAreaView style ={{flex: 1}} edges={["right", "bottom", "left"]}>
       {!snap_editor.pic && (
         <View style={{flex: 1, alignItems: "center", justifyContent: "center"}}>
           <ActivityIndicator animating={true}/>
@@ -92,11 +95,11 @@ const DetailsScreen = function({navigation, route}) {
           </View>
           
           <View style={{flexDirection: "row", alignItems: "center", justifyContent: "center", position: "absolute", left: 0, bottom: 48, width: width}}>
-            {(!is_saving_failed && (is_saving || is_retry) && !snap_uploader.hasErrored) && <ActivityIndicator style={{marginTop: 40}} animating={true}/>}
+            {(!snap_uploader.is_saving_failed && (snap_uploader.is_saving || snap_uploader.is_retry) && !snap_uploader.hasErrored) && <ActivityIndicator style={{marginTop: 40}} animating={true}/>}
             
-            {(!is_saving_failed && !is_saving && !is_retry) && <Button style={{marginTop: 40}} mode="contained" onPress={on_press_send}>Send</Button>}
+            {(!snap_uploader.is_saving_failed && !snap_uploader.is_saving && !snap_uploader.is_retry) && <Button style={{marginTop: 40}} mode="contained" onPress={on_press_send}>Send</Button>}
             
-            {(is_saving_failed || ((is_saving || is_retry) && snap_uploader.hasErrored)) && (<View><Button style={{marginTop: 40}} mode="contained" onPress={on_press_retry}>Retry</Button><HelperText type="error">Something went wrong.</HelperText></View>)}
+            {(snap_uploader.is_saving_failed || ((snap_uploader.is_saving || snap_uploader.is_retry) && snap_uploader.hasErrored)) && (<View><Button style={{marginTop: 40}} mode="contained" onPress={on_press_retry}>Retry</Button><HelperText type="error">Something went wrong.</HelperText></View>)}
           </View>
         </View>
       )}

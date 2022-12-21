@@ -38,15 +38,14 @@ const User = function({id, row_id, navigation}) {
   const { colors } = useTheme();
   const toast = useToast();
   const [busy_button_text, set_busy_button_text] = useState();
-  
-  const { cache_get, cache_get_snap } = useCachedData();
-  const user = cache_get(id);
+
+  const user = useCachedData.cache_get(id);
   
   if (!user) {
     return null;
   }
   
-  const snap_user = cache_get_snap(id);
+  const snap_user = useCachedData.cache_get_snap(id);
   
   const on_press_relationship = async function() {
     try {

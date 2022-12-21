@@ -1,18 +1,19 @@
 "use strict";
 import $ from "../setup";
 import _ from "underscore";
-import { useEffect, useRef } from "react";
-import { Animated, KeyboardAvoidingView, Platform, RefreshControl, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Animated, KeyboardAvoidingView, Platform, RefreshControl } from "react-native";
 import { useToast } from "react-native-toast-notifications";
 import ListHeader from "../components/ListHeader";
 import ListFooter from "../components/ListFooter";
 import ListEmpty from "../components/ListEmpty";
 import { collection, getDocs, limit, query, startAfter, where, orderBy } from "firebase/firestore";
-import { ActivityIndicator, SegmentedButtons, useTheme } from "react-native-paper";
+import { useTheme } from "react-native-paper";
 import Post from "../components/Post";
 import useCachedData from "../hooks/useCachedData";
 import firestore from "../firestore/firestore";
 import { FlashList } from "@shopify/flash-list";
+
 
 const AnimatedFlashList = Animated.createAnimatedComponent(FlashList);
 
@@ -22,8 +23,9 @@ fetch_sizes_by_number_columns[2] = 16;
 fetch_sizes_by_number_columns[3] = 20;
 fetch_sizes_by_number_columns[4] = 28;
 
-const PostList = function({ id, screen, navigation, emoji, number_columns, on_seg_change, seg_value }) {
+const PostList = function({ id, screen, navigation, emoji, number_columns, emoji_screen_state, set_emoji_screen_state }) {
   const { colors } = useTheme();
+  const [explore_screen_state, set_explore_screen_state] = useState({});
 
   const {cache_data, cache_snap_data, cache_sync,cache_reset, cache_set} = useCachedData({
     id: id,
@@ -32,6 +34,8 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, on_se
     is_load_more_error: false,
     is_loading_more: false
   });
+  
+  const ref_list = useRef();
 
   const toast = useToast();
   
@@ -42,15 +46,39 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, on_se
     refresh();
   }, []);
   
+  useEffect(() => {
+    scrollY.current.setValue(0);
+  }, [number_columns]);
+  
+  
+  useEffect(() => {
+    refresh();
+  }, [explore_screen_state]);
+  
+  
   const fetch = async function() {
     if (cache_data.is_refreshing || cache_data.is_loading_more) {
       return;
     }
 
     let query_args;
-    if (screen === "HomeScreen" || screen === "DiscoveryScreen" || screen === "EmojiScreen" || screen == "HistoryScreen") {
+    if (screen === "DiscoveryScreen") {
+      query_args = [collection($.db, "post"), limit(fetch_sizes_by_number_columns[number_columns])];
+      if (explore_screen_state.selected_emoji) {
+        query_args.push(orderBy("created_at", "desc"));
+        query_args.push(where("emoji", "==", explore_screen_state.selected_emoji.char));
+      } else if (explore_screen_state.selected_group) {
+        query_args.push(orderBy("created_at", "desc"));
+        query_args.push(where("emoji_group", "==", explore_screen_state.selected_group.name));
+      } else {
+        query_args.push(orderBy("emoji_group"));
+        query_args.push(where("emoji_group", "!=", ""));
+      }
+    } else if (screen === "HomeScreen" || screen === "EmojiScreen" || screen == "HistoryScreen") {
       query_args = [collection($.db, "post"), where("uid", "==", $.session.uid), orderBy("created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
     }
+    
+    
     if (cache_data.cursor ) {
       query_args.push(startAfter(cache_data.cursor));
     }
@@ -72,9 +100,7 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, on_se
       _.each(snap_posts.docs, function(doc_post) {
         posts.push(doc_post.data());
       });
-      await firestore.inflate_posts({
-        posts: posts
-      }, cache_set);
+      await firestore.inflate_posts({posts: posts}, cache_set);
       cache_sync();
     } catch (e) {
       $.logger.error(e);
@@ -106,11 +132,7 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, on_se
   const render_post = function(row) {
     return <Post navigation={navigation} id={row.item} number_columns={number_columns} screen={screen}/>;
   };
-  
-  const local_on_seg_change = function(value) {
-    _.isFunction(on_seg_change) && on_seg_change(value);
-  };
-  
+
   const handle_scroll = Animated.event(
     [
       {
@@ -124,18 +146,10 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, on_se
     },
   );
 
-  
-  let translateY = scrollY.current.interpolate({
-		inputRange: [0, 60],
-		outputRange: [0, -60],
-		extrapolate: 'clamp'
-	});
-
-  
   return (
     <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
       <AnimatedFlashList
-        contentContainerStyle={{paddingTop: screen === "EmojiScreen" ? 60 : 0}}
+        ref={ref_list}
         scrollEventThrottle={16}
         onScroll={handle_scroll}
         key={number_columns}
@@ -143,11 +157,14 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, on_se
         data={cache_snap_data.data}
         renderItem={render_post}
         keyExtractor = { item => item }
-        ListHeaderComponent = <ListHeader is_error={cache_snap_data.is_refresh_error} on_press_retry={on_press_retry} screen={screen}/>
+        ListHeaderComponent = <ListHeader is_error={cache_snap_data.is_refresh_error} on_press_retry={on_press_retry} screen={screen} is_refreshing={cache_data.is_refreshing} 
+          emoji={emoji} explore_screen_state={explore_screen_state} set_explore_screen_state={set_explore_screen_state}
+          emoji_screen_state={emoji_screen_state} set_emoji_screen_state={set_emoji_screen_state}
+          />
         ListFooterComponent = <ListFooter is_error={cache_snap_data.is_load_more_error} is_loading_more={cache_snap_data.is_loading_more} on_press_retry={on_press_retry}/>
         ListEmptyComponent = <ListEmpty data={cache_snap_data.data} text="No posts found"/>
         refreshControl = {
-          (screen === "EmojiScreen") ? undefined :
+          (screen === "EmojiScreen" || screen === "DiscoveryScreen") ? undefined :
           <RefreshControl
             refreshing={cache_snap_data.is_refreshing}
             onRefresh={refresh}
@@ -165,30 +182,6 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, on_se
         }}
         initialNumToRender={24}
       />
-      {screen === "EmojiScreen" && (
-        <Animated.View style={{flexDirection: "row", position: 'absolute', zIndex: 99, width: "100%", alignItems: "center", transform: [{translateY}]}}>
-          <View style={{flex: 1}}/>
-          <SegmentedButtons
-            value={seg_value}
-            onValueChange={local_on_seg_change}
-            buttons={[
-              {
-                icon: "account-multiple",
-                value: 'everyone',
-                label: 'Everyone (22)',
-              },
-              {
-                icon: "account",
-                value: 'you',
-                label: 'You (0)',
-              }
-            ]}
-          />
-          <View style={{flex: 1, alignItems: "center", justifyContent: "center"}}>
-            { cache_data.is_refreshing && <ActivityIndicator/> }
-          </View>
-        </Animated.View>
-      )}
     </KeyboardAvoidingView>
   );
 };

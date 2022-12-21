@@ -9,19 +9,14 @@ import * as Contacts from 'expo-contacts';
 import { useToast } from "react-native-toast-notifications";
 import Contact from "../../components/Contact";
 import User from "../../components/User";
-import { getFunctions, httpsCallable } from "firebase/functions";
 import firestore from "../../firestore/firestore";
 
 import { proxy } from "valtio";
-
-const functions = getFunctions();
-const f_from_contacts = httpsCallable(functions, 'from_contacts');
 
 $.contacts_rows_by_id = proxy({});
 
 
 const Row = function({ row, navigation, user_count }) {
-  console.log(user_count);
   if (row.id === "is_users_header") {
     return <Fragment><Text style={{margin: 10, marginTop: 20}} variant="titleSmall">YOUR CONTACTS ON SWENGLE</Text>{user_count === 0 && (<Text>None of your contacts ws found on swengle.</Text>)}</Fragment>;
   }
@@ -58,8 +53,8 @@ const ContactsScreen = function({ navigation }) {
         });
         try {
           setIsBusy(true);
-
-          const response = (await f_from_contacts({ contacts: output })).data;
+          
+          const response = (await $.cf.from_contacts({ contacts: output })).data;
           
           set_user_count(response.user_count);
           
@@ -96,6 +91,7 @@ const ContactsScreen = function({ navigation }) {
           set_data(final_data);
         }
         catch (e) {
+          $.logger.error(e);
           $.display_error(toast, new Error("Failed to process contacts."));
           setIsError(true);
         }

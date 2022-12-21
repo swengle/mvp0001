@@ -170,7 +170,7 @@ const CameraScreen = function({ navigation, route }) {
 
   
   return (
-    <SafeAreaView style ={{flex: 1}}>
+    <SafeAreaView style ={{flex: 1}} edges={["right", "bottom", "left"]}>
        <Appbar.Header>
           <Appbar.BackAction onPress={on_press_close} />
           <Appbar.Content title={""}  />

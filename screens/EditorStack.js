@@ -1,20 +1,21 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createStackNavigator, TransitionPresets } from '@react-navigation/stack';
 import CameraScreen from "./editor/CameraScreen";
 import DetailsScreen from "./editor/DetailsScreen";
 import SelectEmojiScreen from "./editor/SelectEmojiScreen";
 
-const Stack = createNativeStackNavigator();
+const createNavigator = true ? createStackNavigator : createNativeStackNavigator;
 
-const AuthStack = function() {
+const Stack = createNavigator();
+
+const EditorStack = function() {
   return (
-    <Stack.Navigator>
-      <Stack.Group>
-        <Stack.Screen name="CameraScreen" component={CameraScreen} options={{headerShown: false}}/>
-        <Stack.Screen name="DetailsScreen" component={DetailsScreen} options={{headerShown: false}}/>
-        <Stack.Screen name="SelectEmojiScreen" component={SelectEmojiScreen} options={{headerShown: false}}/>
-      </Stack.Group>
+    <Stack.Navigator screenOptions={{headerShown: false, ...TransitionPresets.ScaleFromCenterAndroid}}>
+      <Stack.Screen name="CameraScreen" component={CameraScreen}/>
+      <Stack.Screen name="DetailsScreen" component={DetailsScreen}/>
+      <Stack.Screen name="SelectEmojiScreen" component={SelectEmojiScreen}/>
     </Stack.Navigator>
   );
 };
 
-export default AuthStack;
+export default EditorStack;

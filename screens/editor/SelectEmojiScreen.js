@@ -26,7 +26,7 @@ const SelectEmojiScreen = function({ navigation }) {
   };
 
   return (
-    <SafeAreaView style ={{flex: 1}}>
+    <SafeAreaView style ={{flex: 1}} edges={["right", "bottom", "left"]}>
       <Appbar.Header>
         <Appbar.BackAction onPress={on_press_back} />
         <Appbar.Content title="What's your mood?" />

@@ -16,6 +16,9 @@ import { StatusBar } from 'expo-status-bar';
 import messaging from '@react-native-firebase/messaging';
 import { Asset } from 'expo-asset';
 import firestore from "./firestore/firestore";
+import useCachedData from "./hooks/useCachedData";
+import { doc, onSnapshot } from "firebase/firestore";
+
 
 const { LightTheme, DarkTheme } = adaptNavigationTheme({
   light: NavigationDefaultTheme,
@@ -71,17 +74,26 @@ export default function App() {
         width: width/4,
         height: (width/4) * (1350/1080)
       }
+    },
+    emoji_groups: {
+      smileys: {name: "Smileys & Emotion", icon: "emoticon"},
+      people: {name: "People & Body", icon: "account-multiple"},
+      animals: {name: "Animals & Nature", icon: "dog"},
+      food: {name: "Food & Drink", icon: "food-apple"},
+      travel: {name: "Travel & Places", icon: "car"},
+      activities: {name: "Activities", icon: "basketball"},
+      objects: {name: "Objects", icon: "tshirt-crew"},
+      symbols: {name: "Symbols", icon: "symbol"},
+      flags: {name: "Flags", icon: "flag"}
     }
   };
-  
   
   const snap_app = useSnapshot($.app);
   const snap_session = useSnapshot($.session);
   const snap_dialog = useSnapshot($.dialog);
   const scheme = useColorScheme();
-  let unsubscribe_app, unsubscribe_auth_state, unsubscribe_session, unsubscribe_messaging, unsubscribe_background_messaging, unsubscribe_app_state;
+  let unsubscribe_app, unsubscribe_auth_state, unsubscribe_session, unsubscribe_messaging, unsubscribe_background_messaging, unsubscribe_app_state, unsubscribe_fs_current_user, unsubscribe_fs_counts;
   
- 
   useEffect(() => {
     async function prepare() {
       try {
@@ -92,7 +104,20 @@ export default function App() {
         unsubscribe_auth_state = onAuthStateChanged(auth, async function(u) {
           if (u) {
             try {
+              unsubscribe_fs_current_user = onSnapshot(doc($.db, "user", u.uid), (doc) => {
+                const current_user = doc.data();
+                useCachedData.cache_set(current_user);
+              });
+              
+              unsubscribe_fs_counts = onSnapshot(doc($.db, "user/" + u.uid + "/counts", "emojis"), (doc) => {
+                const counts = doc.data() || {};
+                counts.id = "counts";
+                useCachedData.cache_set(counts);
+              });
+              
               const user_ids = await firestore.load_users({ids: [u.uid]});
+              $.session.global_counts = (await $.cf.get_global_counts()).data;
+              
               if (_.size(user_ids) === 1) {
                 $.session.uid = u.uid;
               } else {
@@ -163,6 +188,8 @@ export default function App() {
       unsubscribe_messaging && unsubscribe_messaging();
       unsubscribe_background_messaging && unsubscribe_background_messaging();
       unsubscribe_app_state && unsubscribe_app_state.remove();
+      unsubscribe_fs_current_user && unsubscribe_fs_current_user();
+      unsubscribe_fs_counts && unsubscribe_fs_counts();
     };
   }, []);
   

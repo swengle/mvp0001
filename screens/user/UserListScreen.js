@@ -38,7 +38,6 @@ const UserListScreen = function({navigation, route}) {
     if (cache_data.is_refreshing || cache_data.is_loading_more) {
       return;
     }
-    console.log(screen);
     let q_args;
     if (screen === "LikersScreen") {
       q_args = [collectionGroup($.db, "reaction"), where("kind", "==", "like"), where("parent_id", "==", id), orderBy("created_at", "desc"), limit(FETCH_SIZE)];

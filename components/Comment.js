@@ -11,8 +11,7 @@ import LiveTimeAgo from "../components/LiveTimeAgo";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 const More = function({id, on_press_more, index}) {
-  const { cache_get } = useCachedData();
-  const item = cache_get(id);
+  const item = useCachedData.cache_get(id);
 
   const on_press_more_inner = function() {
     _.isFunction(on_press_more) && on_press_more(id, index);
@@ -28,19 +27,18 @@ const Comment = function({id, index, navigation, on_press_like, on_press_reply, 
   const [is_liking, set_is_liking] = useState(false);
   const [is_unliking, set_is_unliking] = useState(false);
 
-  const { cache_get, cache_get_snap } = useCachedData();
-  const comment = cache_get(id);
+  const comment = useCachedData.cache_get(id);
   
   if (!comment) {
     return null;
   }
-  const user = cache_get(comment.uid);
+  const user = useCachedData.cache_get(comment.uid);
   if (!user) {
     return null;
   }
   
-  const comment_snap = cache_get_snap(id);
-  const user_snap = cache_get_snap(comment.uid);
+  const comment_snap = useCachedData.cache_get_snap(id);
+  const user_snap = useCachedData.cache_get_snap(comment.uid);
   
   
   const on_press_user = function() {

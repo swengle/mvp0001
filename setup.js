@@ -20,11 +20,16 @@ import * as timeago from 'timeago.js';
 import firestore from "./firestore/firestore";
 import { doc, getDoc } from "firebase/firestore";
 import useCachedData from "./hooks/useCachedData";
+import { getFunctions, httpsCallable } from "firebase/functions";
+
 $.emoji_data = require("./assets/emoji.json");
+
 $.emoji_data_by_char = {};
 _.each($.emoji_data, function(emoji) {
   $.emoji_data_by_char[emoji.char] = emoji;
 });
+
+$.emoji_data_by_group = _.groupBy($.emoji_data, "group");
 
 $.logger = logger.createLogger();
 
@@ -98,6 +103,13 @@ $.reset_editor = function() {
     delete $.editor[key];
   });
 };
+
+
+const functions = getFunctions();
+$.cf = {};
+$.cf.from_contacts = httpsCallable(functions, 'from_contacts');
+$.cf.get_auth_token = httpsCallable(functions, 'get_auth_token');
+$.cf.get_global_counts = httpsCallable(functions, 'get_global_counts');
 
 $.check_notification_permissions = async function() {
   const auth_status = await messaging().requestPermission();

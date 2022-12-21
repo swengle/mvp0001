@@ -13,31 +13,26 @@ import LiveTimeAgo from "../components/LiveTimeAgo";
 import useCachedData from "../hooks/useCachedData";
 import EmojiOverlay from "../components/EmojiOverlay";
 
-
 const Post = function({id, navigation, number_columns, screen, on_press_comment, on_press_comments, on_press_like, on_press_likes}) {
   const anim = useRef(new Animated.Value(1));
   const [is_image_loaded, set_is_image_loaded] = useState(false);
   const [is_liking, set_is_liking] = useState(false);
   const [is_unliking, set_is_unliking] = useState(false);
   const { colors } = useTheme();
-  
-  const { cache_get, cache_get_snap } = useCachedData();
-  const post = cache_get(id);
-  
+
+  const post = useCachedData.cache_get(id);
   if (!post) {
     return null;
   }
   
-  const snap_post = cache_get_snap(id);
+  const snap_post = useCachedData.cache_get_snap(id);
   
-  if (!snap_post) {
-    return null;
-  }
-  
-  const snap_user = cache_get_snap(snap_post.uid);
+  const snap_user = useCachedData.cache_get_snap(post.uid);
+  console.log(snap_user);
   if (!snap_user || snap_post.is_deleted) { // can't check this earlier to keep hook counts the same
     return null;
   }
+
   
   const on_press_user = function() {
     navigation.push("UserScreen", { id: snap_user.id });
@@ -275,11 +270,10 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
             </View>
              <TapDetector on_single_tap={on_press_post} on_double_tap={on_press_like_inner}><View style={{flex:1}}/></TapDetector>
             {(screen !== "HistoryScreen") && (
-              <TouchableOpacity onPress={on_press_user} activeOpacity={0.8} style={{padding: 5, paddingBottom: 0}}>
+              <TouchableOpacity onPress={on_press_user} activeOpacity={0.8} style={{padding: 4}}>
                 <Text style={[styles.image_text_4_username, styles.image_text]}>{snap_user.username}</Text>
               </TouchableOpacity>
             )}
-            {true && <View style={{padding: 4}}><Text numberOfLines={1} style={[styles.image_text_4, styles.image_text, {width: "100%"}]}>This is some text to go with this thing! This is some text to go with this thing! This is some text to go</Text></View>}
             {is_image_loaded && _.isString(snap_post.emoji) && <EmojiOverlay  emoji_char={snap_post.emoji} scaling_factor={number_columns} on_press={on_press_emoji}/>}
           </Fragment>
         )}
@@ -293,7 +287,10 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
 
 const styles = StyleSheet.create({
   image_text: {
-    color: "white"
+    color: "white",
+    textShadowColor: 'rgba(0, 0, 0, 0.9)',
+    textShadowOffset: {width: -2, height: 2},
+    textShadowRadius: 1
   },
   image_text_4: {
     fontSize: 8

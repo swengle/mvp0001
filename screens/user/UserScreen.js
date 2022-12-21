@@ -44,15 +44,14 @@ const get_relationship_button_text = function(status) {
 
 const Header = function({ id, navigation, ref_comment_input, on_press_comment, on_press_comments }) {
   const toast = useToast();
-  const { cache_get, cache_get_snap } = useCachedData();
   const { dark } = useTheme();
   const [busy_button_text, set_busy_button_text] = useState();
   
-  const user = cache_get(id);
+  const user = useCachedData.cache_get(id);
   if (!user || user.is_deleted) {
     return null;
   }
-  const snap_user = cache_get_snap(id);
+  const snap_user = useCachedData.cache_get_snap(id);
   
   const on_press_followers = function() {
     navigation.push("UserListScreen", {id: id, screen: "FollowersScreen"});
@@ -335,8 +334,8 @@ const UserScreen= function({navigation, route}) {
     }
     set_is_sending_comment(true);
     try {
-      const target_index = _.isNumber(cache_data.active_comment_index) ? cache_data.active_comment_index : 0;
-      await firestore.create_comment(params, cache_set, _.isNumber(cache_data.active_comment_index) ? cache_data.active_comment_index + 1 : undefined);
+      const target_index = _.isNumber(cache_data.active_comment_index) ? (cache_data.active_comment_index + 1) : 0;
+      await firestore.create_comment(params, cache_set, target_index);
       set_comment_text("");
       set_is_comment_text_good(false);
       ref_comment_input.current.blur();
