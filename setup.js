@@ -119,7 +119,7 @@ $.check_notification_permissions = async function() {
       return;
     }
     const token = await messaging().getToken();
-    const doc_ref = doc($.db, "user/" + $.session.uid + "/messaging_config", token);
+    const doc_ref = doc($.db, "users/" + $.session.uid + "/messaging_configs", token);
     const doc_snap = await getDoc(doc_ref);
     if (doc_snap.exists()) {
       $.session.messaging_config = doc_snap.data();

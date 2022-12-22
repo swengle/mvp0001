@@ -9,7 +9,7 @@ import User from "../../components/User";
 import ListHeader from "../../components/ListHeader";
 import ListFooter from "../../components/ListFooter";
 import ListEmpty from "../../components/ListEmpty";
-import { collection, collectionGroup, getDocs, limit, orderBy, query, startAfter, where } from "firebase/firestore";
+import { collectionGroup, getDocs, limit, orderBy, query, startAfter, where } from "firebase/firestore";
 import { Appbar, useTheme } from "react-native-paper";
 import firestore from "../../firestore/firestore";
 import useCachedData from "../../hooks/useCachedData";
@@ -40,9 +40,9 @@ const UserListScreen = function({navigation, route}) {
     }
     let q_args;
     if (screen === "LikersScreen") {
-      q_args = [collectionGroup($.db, "reaction"), where("kind", "==", "like"), where("parent_id", "==", id), orderBy("created_at", "desc"), limit(FETCH_SIZE)];
+      q_args = [collectionGroup($.db, "reactions"), where("kind", "==", "like"), where("parent_id", "==", id), orderBy("created_at", "desc"), limit(FETCH_SIZE)];
     } else {
-      q_args = [collectionGroup($.db, "relationship"), where("status", "==", "follow"), orderBy("updated_at", "desc"), limit(FETCH_SIZE)];
+      q_args = [collectionGroup($.db, "relationships"), where("status", "==", "follow"), orderBy("updated_at", "desc"), limit(FETCH_SIZE)];
       if (screen === "FollowingScreen") {
         q_args.push(where("id", "==", id));
       } else if (screen === "FollowersScreen") {

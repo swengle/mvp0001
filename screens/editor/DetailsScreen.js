@@ -9,6 +9,7 @@ import { useToast } from "react-native-toast-notifications";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import firestore from "../../firestore/firestore";
 import EmojiOverlay from "../../components/EmojiOverlay";
+import useCachedData from "../../hooks/useCachedData";
 
 const DetailsScreen = function({navigation, route}) {
   const toast = useToast();
@@ -47,7 +48,8 @@ const DetailsScreen = function({navigation, route}) {
   const save = async function(response) {
     $.uploader.state.is_saving_failed = false;
     try {
-      await firestore.create_post({image: response, emoji: snap_editor.emoji.char});
+      const new_post = await firestore.create_post({image: response, emoji_char: snap_editor.emoji.char, emoji_group: snap_editor.emoji.group});
+      useCachedData.cache_set(new_post);
       navigation.navigate("StackTabs");
     } catch (e) {
       $.logger.error(e);

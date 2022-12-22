@@ -9,13 +9,11 @@ import ListFooter from "../components/ListFooter";
 import ListEmpty from "../components/ListEmpty";
 import { collection, getDocs, limit, query, startAfter, where, orderBy } from "firebase/firestore";
 import { useTheme } from "react-native-paper";
-import Post from "../components/Post";
+import UserPost from "../components/UserPost";
 import useCachedData from "../hooks/useCachedData";
 import firestore from "../firestore/firestore";
 import { FlashList } from "@shopify/flash-list";
-
-
-const AnimatedFlashList = Animated.createAnimatedComponent(FlashList);
+import Post from "../components/Post";
 
 const fetch_sizes_by_number_columns = {};
 fetch_sizes_by_number_columns[1] = 12;
@@ -23,11 +21,11 @@ fetch_sizes_by_number_columns[2] = 16;
 fetch_sizes_by_number_columns[3] = 20;
 fetch_sizes_by_number_columns[4] = 28;
 
-const PostList = function({ id, screen, navigation, emoji, number_columns, emoji_screen_state, set_emoji_screen_state }) {
+const UserPostList = function({ id, screen, navigation, emoji, number_columns, emoji_screen_state, set_emoji_screen_state }) {
   const { colors } = useTheme();
-  const [explore_screen_state, set_explore_screen_state] = useState({});
+  const [explore_screen_state, set_explore_screen_state] = useState({segment_value: "users"});
 
-  const {cache_data, cache_snap_data, cache_sync,cache_reset, cache_set} = useCachedData({
+  const {cache_data, cache_snap_data, cache_sync, cache_empty, cache_reset, cache_set} = useCachedData({
     id: id,
     is_refreshing: false,
     is_refresh_error: false,
@@ -63,19 +61,24 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, emoji
 
     let query_args;
     if (screen === "DiscoveryScreen") {
-      query_args = [collection($.db, "posts"), limit(fetch_sizes_by_number_columns[number_columns])];
+      query_args = [collection($.db, "users"), where("is_account_public", "==", true), orderBy("current_post_created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
       if (explore_screen_state.selected_emoji) {
-        query_args.push(orderBy("created_at", "desc"));
-        query_args.push(where("emoji", "==", explore_screen_state.selected_emoji.char));
+        query_args.push(where("current_post_emoji_char", "==", explore_screen_state.selected_emoji.char));
       } else if (explore_screen_state.selected_group) {
-        query_args.push(orderBy("created_at", "desc"));
-        query_args.push(where("emoji_group", "==", explore_screen_state.selected_group.name));
-      } else {
-        query_args.push(orderBy("emoji_group"));
-        query_args.push(where("emoji_group", "!=", ""));
+        query_args.push(where("current_post_emoji_group", "==", explore_screen_state.selected_group.name));
       }
-    } else if (screen === "HomeScreen" || screen === "EmojiScreen" || screen == "HistoryScreen") {
-      query_args = [collection($.db, "posts"), where("uid", "==", $.session.uid), orderBy("created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
+    } else if (screen == "HistoryScreen") {
+      query_args = [collection($.db, "users/" + $.session.uid + "/posts"), orderBy("created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
+    } else if (screen === "HomeScreen") {
+      // this will be from the feed eventually
+      query_args = [collection($.db, "users"), orderBy("current_post_created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
+    } else if (screen === "EmojiScreen") {
+      query_args = [collection($.db, "users"), where("current_post_emoji_char", "==", emoji.char), where("is_account_public", "==", true), orderBy("current_post_created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
+      if (emoji_screen_state.segment_value === "you") {
+        query_args = [collection($.db, "users/" + $.session.uid + "/posts"), where("emoji_char", "==", emoji.char), orderBy("created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
+      } else {
+        query_args = [collection($.db, "users"), where("current_post_emoji_char", "==", emoji.char), where("is_account_public", "==", true), orderBy("current_post_created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
+      }
     }
     
     
@@ -83,25 +86,38 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, emoji
       query_args.push(startAfter(cache_data.cursor));
     }
     
-    const q_post = query(...query_args);
+    const q = query(...query_args);
     cache_data.cursor ? cache_data.is_loading_more = true : cache_data.is_refreshing = true;
-    const posts = [];
+    const items = [];
 
     try {
-      const snap_posts = await getDocs(q_post);
+      const snap_docs = await getDocs(q);
       if (!cache_data.cursor) {
         cache_reset();
       }
-      if (_.size(snap_posts.docs) === fetch_sizes_by_number_columns[number_columns]) {
-        cache_data.cursor = _.last(snap_posts.docs);
+      const size = _.size(snap_docs.docs);
+      if (size === fetch_sizes_by_number_columns[number_columns]) {
+        cache_data.cursor = _.last(snap_docs.docs);
       } else {
         cache_data.cursor = null;
       }
-      _.each(snap_posts.docs, function(doc_post) {
-        posts.push(doc_post.data());
-      });
-      await firestore.inflate_posts({posts: posts}, cache_set);
-      cache_sync();
+      if (size > 0) {
+        _.each(snap_docs.docs, function(doc) {
+          items.push(doc.data());
+        });
+        
+        if (screen == "HistoryScreen") {
+          await firestore.fetch_post_dependencies(items);
+        } else {
+          await firestore.fetch_user_dependencies(items); 
+        }
+        _.each(items, function(item) {
+          cache_set(item);
+        });
+        cache_sync();
+      } else {
+        cache_empty(); 
+      }
     } catch (e) {
       $.logger.error(e);
       cache_data.is_loading_more ? cache_data.is_load_more_error = true : cache_data.is_refresh_error = true;
@@ -129,8 +145,8 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, emoji
     fetch();
   };
 
-  const render_post = function(row) {
-    return <Post navigation={navigation} id={row.item} number_columns={number_columns} screen={screen}/>;
+  const render_user_post = function(row) {
+    return (screen === "HistoryScreen" || (screen === "EmojiScreen" && emoji_screen_state.segment_value === "you")) ?  <Post navigation={navigation} id={row.item} number_columns={number_columns} screen={screen}/> : <UserPost navigation={navigation} id={row.item} number_columns={number_columns} screen={screen}/> ;
   };
 
   const handle_scroll = Animated.event(
@@ -148,21 +164,22 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, emoji
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
-      <AnimatedFlashList
+      <FlashList
         ref={ref_list}
         scrollEventThrottle={16}
         onScroll={handle_scroll}
         key={number_columns}
-        keyboardShouldPersistTaps="always"
-        data={cache_snap_data.data}
-        renderItem={render_post}
+        keyboardShouldPersistTaps={explore_screen_state.is_search_active ? "always" : "never"}
+        data={explore_screen_state.is_search_active ? undefined : cache_snap_data.data}
+        renderItem={render_user_post}
         keyExtractor = { item => item }
         ListHeaderComponent = <ListHeader is_error={cache_snap_data.is_refresh_error} on_press_retry={on_press_retry} screen={screen} is_refreshing={cache_data.is_refreshing} 
+          navigation={navigation}
           emoji={emoji} explore_screen_state={explore_screen_state} set_explore_screen_state={set_explore_screen_state}
           emoji_screen_state={emoji_screen_state} set_emoji_screen_state={set_emoji_screen_state}
           />
         ListFooterComponent = <ListFooter is_error={cache_snap_data.is_load_more_error} is_loading_more={cache_snap_data.is_loading_more} on_press_retry={on_press_retry}/>
-        ListEmptyComponent = <ListEmpty data={cache_snap_data.data} text="No posts found"/>
+        ListEmptyComponent = <ListEmpty data={explore_screen_state.is_search_active ? undefined : cache_snap_data.data} text="No users found!"/>
         refreshControl = {
           (screen === "EmojiScreen" || screen === "DiscoveryScreen") ? undefined :
           <RefreshControl
@@ -181,10 +198,10 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, emoji
           return "photo";
         }}
         initialNumToRender={24}
-      />
+        />
     </KeyboardAvoidingView>
   );
 };
 
 
-export default PostList;
+export default UserPostList;

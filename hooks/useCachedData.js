@@ -118,7 +118,7 @@ useCachedData.cache_sync = function(cache_data, index) {
     }
     else {
       if (_.isNumber(index)) {
-        cache_data.data.splice(index+1, 0, ...cache_data.pending);
+        cache_data.data.splice(index, 0, ...cache_data.pending);
       } else {
         cache_data.data = [...cache_data.data, ...cache_data.pending];
       }

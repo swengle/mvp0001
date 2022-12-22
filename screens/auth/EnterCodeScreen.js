@@ -20,7 +20,7 @@ import { useSnapshot } from "valtio";
 const auth = getAuth();
 
 
-const EnterCode = function({route, navigation}) {
+const EnterCodeScreen = function({route, navigation}) {
   const snap_auth = useSnapshot($.auth);
   const { colors } = useTheme();
   const [is_busy, set_is_busy] = useState(false);
@@ -131,4 +131,4 @@ const styles = StyleSheet.create({
   }
 });
 
-export default EnterCode;
+export default EnterCodeScreen;

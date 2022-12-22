@@ -15,10 +15,8 @@ import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 import { StatusBar } from 'expo-status-bar';
 import messaging from '@react-native-firebase/messaging';
 import { Asset } from 'expo-asset';
-import firestore from "./firestore/firestore";
 import useCachedData from "./hooks/useCachedData";
 import { doc, onSnapshot } from "firebase/firestore";
-
 
 const { LightTheme, DarkTheme } = adaptNavigationTheme({
   light: NavigationDefaultTheme,
@@ -46,7 +44,8 @@ const auth = getAuth();
 SplashScreen.preventAutoHideAsync();
 
 export default function App() {
-  LogBox.ignoreLogs(["AsyncStorage has been extracted from react-native core and will be removed in a future release. It can now be installed and imported from '@react-native-async-storage/async-storage' instead of 'react-native'. See https://github.com/react-native-async-storage/async-storage"]);
+  LogBox.ignoreLogs(["AsyncStorage has been extracted from react-native core and will be removed in a future release. It can now be installed and imported from '@react-native-async-storage/async-storage' instead of 'react-native'. See https://github.com/react-native-async-storage/async-storage",
+                      "VirtualizedLists should never be nested inside plain ScrollViews with the same orientation because it can break windowing and other functionality - use another VirtualizedList-backed container instead."]);
   const { width } = useWindowDimensions();
   if (!$.session) {
     $.session = proxy({});
@@ -94,6 +93,17 @@ export default function App() {
   const scheme = useColorScheme();
   let unsubscribe_app, unsubscribe_auth_state, unsubscribe_session, unsubscribe_messaging, unsubscribe_background_messaging, unsubscribe_app_state, unsubscribe_fs_current_user, unsubscribe_fs_counts;
   
+  const turn_off_subscriptions = function() {
+    unsubscribe_auth_state && unsubscribe_auth_state();
+    unsubscribe_app && unsubscribe_app();
+    unsubscribe_session && unsubscribe_session();
+    //unsubscribe_messaging && unsubscribe_messaging();
+    unsubscribe_background_messaging && unsubscribe_background_messaging();
+    unsubscribe_app_state && unsubscribe_app_state.remove();
+    unsubscribe_fs_current_user && unsubscribe_fs_current_user();
+    unsubscribe_fs_counts && unsubscribe_fs_counts();
+  };
+  
   useEffect(() => {
     async function prepare() {
       try {
@@ -103,30 +113,32 @@ export default function App() {
         
         unsubscribe_auth_state = onAuthStateChanged(auth, async function(u) {
           if (u) {
+            //await signOut(auth);
             try {
-              unsubscribe_fs_current_user = onSnapshot(doc($.db, "user", u.uid), (doc) => {
+              unsubscribe_fs_current_user = onSnapshot(doc($.db, "users", u.uid), (doc) => {
                 const current_user = doc.data();
+                if (current_user.current_post && current_user.current_post.is_owner_liked) {
+                  current_user.current_post.is_liked = true;
+                }
                 useCachedData.cache_set(current_user);
+                $.session.uid = u.uid;
               });
               
-              unsubscribe_fs_counts = onSnapshot(doc($.db, "user/" + u.uid + "/counts", "emojis"), (doc) => {
+              unsubscribe_fs_counts = onSnapshot(doc($.db, "users/" + u.uid + "/counts", "emojis"), (doc) => {
                 const counts = doc.data() || {};
                 counts.id = "counts";
                 useCachedData.cache_set(counts);
               });
               
-              const user_ids = await firestore.load_users({ids: [u.uid]});
               $.session.global_counts = (await $.cf.get_global_counts()).data;
               
-              if (_.size(user_ids) === 1) {
-                $.session.uid = u.uid;
-              } else {
-                await signOut(auth);
-              }
+              
             } catch(e) {
-              console.log(e);
+              $.logger.error(e);
             }
           } else {
+            unsubscribe_fs_current_user && unsubscribe_fs_current_user();
+            unsubscribe_fs_counts && unsubscribe_fs_counts();
             delete $.session.uid;
           }
           $.session.is_auth_ready = true;
@@ -173,7 +185,7 @@ export default function App() {
           _.extend($.app, json);
         }
       } catch (e) {
-        console.warn(e);
+        $.logger.error(e);
       } finally {
         $.session.is_prep_ready = true;
       }
@@ -181,16 +193,7 @@ export default function App() {
 
     prepare();
     
-    return function() {
-      unsubscribe_app && unsubscribe_app();
-      unsubscribe_auth_state && unsubscribe_auth_state();
-      unsubscribe_session && unsubscribe_session();
-      unsubscribe_messaging && unsubscribe_messaging();
-      unsubscribe_background_messaging && unsubscribe_background_messaging();
-      unsubscribe_app_state && unsubscribe_app_state.remove();
-      unsubscribe_fs_current_user && unsubscribe_fs_current_user();
-      unsubscribe_fs_counts && unsubscribe_fs_counts();
-    };
+    return turn_off_subscriptions;
   }, []);
   
   

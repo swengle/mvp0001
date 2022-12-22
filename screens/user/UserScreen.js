@@ -10,7 +10,7 @@ import * as Contacts from 'expo-contacts';
 import firestore from "../../firestore/firestore";
 import useCachedData from "../../hooks/useCachedData";
 import { collectionGroup, getDocs, limit, query, startAfter, where, orderBy } from "firebase/firestore";
-import Post from "../../components/Post";
+import UserPost from "../../components/UserPost";
 import Comment from "../../components/Comment";
 import ListFooter from "../../components/ListFooter";
 
@@ -109,14 +109,14 @@ const Header = function({ id, navigation, ref_comment_input, on_press_comment, o
       
       <Divider style={{marginTop: 10, marginBottom: 10}}/>
       
-      {!snap_user.current_post_id && (
+      {!snap_user.current_post && (
         <View style={{marginBottom: 20, padding: 20, paddingLeft: 30}}>
           { dark && <Image source={require("../../assets/dark-puzzled-500.png")} style={{width: $.const.image_sizes["1"].width-40, height: $.const.image_sizes["1"].width-40}}/>}
           { !dark && <Image source={require("../../assets/light-puzzled-500.png")} style={{width: $.const.image_sizes["1"].width-40, height: $.const.image_sizes["1"].width-40}}/>}
         </View>
       )}
       
-      {snap_user.current_post_id && <Post id={snap_user.current_post_id} navigation={navigation} number_columns={1} screen="UserScreen" on_press_comment={on_press_comment} on_press_comments={on_press_comments}/>}
+      {snap_user.current_post && <UserPost id={snap_user.id} navigation={navigation} number_columns={1} screen="UserScreen" on_press_comment={on_press_comment} on_press_comments={on_press_comments}/>}
       
       <Divider/>
     </Fragment>
@@ -160,20 +160,25 @@ const UserScreen= function({navigation, route}) {
   
   const snap_user = cache_get_snap(id);
   const { colors } = useTheme();
+  
+  const load_user = async function() {
+    const users = await firestore.fetch_users([id]);
+    _.each(users, function(user) {
+      useCachedData.cache_set(user);
+    });
+  };
 
   useEffect(() => {
-    firestore.load_users({
-      ids: [id]
-    });
+    load_user();
     refresh();
   }, []);
   
   const fetch = async function() {
-    if (cache_data.is_refreshing || cache_data.is_loading_more || !user.current_post_id) {
+    if (cache_data.is_refreshing || cache_data.is_loading_more || !user.current_post) {
       return;
     }
 
-    const query_args = [collectionGroup($.db, "reaction"), where("kind", "==", "comment"), where("parent_id", "==", user.current_post_id), orderBy("created_at", "desc"), limit(FETCH_SIZE+1)];
+    const query_args = [collectionGroup($.db, "reactions"), where("parent_id", "==", user.current_post.id), where("kind", "==", "comment"), orderBy("created_at", "desc"), limit(FETCH_SIZE+1)];
     if (cache_data.cursor) {
       query_args.push(startAfter(cache_data.cursor));
     }
@@ -202,7 +207,10 @@ const UserScreen= function({navigation, route}) {
       _.each(docs, function(doc_comment) {
         comments.push(doc_comment.data());
       });
-      await firestore.inflate_comments({comments: comments}, cache_set);
+      await firestore.fetch_comment_dependencies(comments);
+      _.each(comments, function(comment) {
+        cache_set(comment);
+      });
       cache_sync();
       if (route.params && route.params.is_scroll_to_comments && cache_data.is_first_refresh) {
         scroll_to_index(0, 0.2, 400);
@@ -225,7 +233,7 @@ const UserScreen= function({navigation, route}) {
       return;
     }
 
-    const query_args = [collectionGroup($.db, "reaction"), where("kind", "==", "comment"), where("parent_id", "==", parent_id), orderBy("created_at", "desc"), limit(SUBCOMMENT_FETCH_SIZE+1)];
+    const query_args = [collectionGroup($.db, "reactions"), where("parent_id", "==", parent_id), where("kind", "==", "comment"), orderBy("created_at", "desc"), limit(SUBCOMMENT_FETCH_SIZE+1)];
     if (cache_data.fetchers[parent_id].cursor) {
       query_args.push(startAfter(cache_data.fetchers[parent_id].cursor));
     }
@@ -251,13 +259,13 @@ const UserScreen= function({navigation, route}) {
         comments.push(doc_comment.data());
       });
       
-      await firestore.inflate_comments({comments: comments}, cache_set);
+      await firestore.fetch_comment_dependencies(comments);
+      _.each(comments, function(comment) {
+        cache_set(comment);
+      });
       
-      cache_sync(index);
-      
-      if (route.params && route.params.is_scroll_to_comments && cache_data.is_first_refresh) {
-        scroll_to_index(0, 0.2, 400);
-      }
+      cache_sync(_.isNumber(index) ? index + 1 : 0);
+
       cache_data.fetchers[parent_id].is_first_refresh = false;
     } catch (e) {
       $.logger.error(e);
@@ -306,7 +314,7 @@ const UserScreen= function({navigation, route}) {
   };
   
   const on_press_history = function() {
-    navigation.push("PostListScreen", {screen: "HistoryScreen"}); 
+    navigation.push("UserPostListScreen", {screen: "HistoryScreen"}); 
   };
   
   const on_dismiss_more_menu = function() {
@@ -324,18 +332,22 @@ const UserScreen= function({navigation, route}) {
   
   const on_press_send = async function() {
     const params = {
-      parent_id: user.current_post_id,
-      parent_type: "post",
+      parent_user_id: user.id,
+      parent_id: user.current_post.id,
+      parent_kind: "post",
       text: comment_text.trim()
     };
     if (cache_data.active_comment_id) {
       params.parent_id = cache_data.active_comment_id;
-      params.parent_type = "reaction";
+      params.parent_kind = "reaction";
     }
     set_is_sending_comment(true);
     try {
       const target_index = _.isNumber(cache_data.active_comment_index) ? (cache_data.active_comment_index + 1) : 0;
-      await firestore.create_comment(params, cache_set, target_index);
+      const new_comment = await firestore.create_comment(params.parent_user_id, params.parent_id, params.parent_kind, params.text);
+      _.isNumber(user.current_post.comment_count) ? user.current_post.comment_count++ : user.current_post.comment_count = 1;
+      cache_set(new_comment, { is_skip_pending: true, index: target_index || 0 });
+      
       set_comment_text("");
       set_is_comment_text_good(false);
       ref_comment_input.current.blur();
@@ -440,7 +452,7 @@ const UserScreen= function({navigation, route}) {
           onEndReached={fetch_more}
           removeClippedSubviews={true}
         />
-        {_.isString(snap_user.current_post_id)  && (
+        {_.isObject(snap_user.current_post)  && (
           <View>
             <TextInput ref={ref_comment_input} label="Comment" multiline={true} value={comment_text} onChangeText={on_change_comment_text} style={{maxHeight: 160, paddingRight: 76, fontSize: 14}} autoFocus={is_auto_focus} onFocus={on_focus} onBlur={on_blur}/>
             <View style={{position: "absolute", bottom: 0, top: 0, right: 8, justifyContent: "center"}}>

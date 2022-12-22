@@ -71,8 +71,10 @@ const Comment = function({id, index, navigation, on_press_like, on_press_reply, 
       set_is_liking(true);
       try {
         await firestore.create_like({
-          parent: comment
-        }); 
+          parent_id: comment.id,
+          parent_kind: "comment"
+        });
+        comment.is_liked = true;
       } catch (e) {
         $.logger.error(e);
       } finally {
@@ -83,7 +85,8 @@ const Comment = function({id, index, navigation, on_press_like, on_press_reply, 
       try {
         await firestore.delete_like({
           parent: comment
-        }); 
+        });
+        comment.is_liked = false;
       } catch (e) {
         $.logger.error(e);
       } finally {

@@ -80,7 +80,7 @@ const User = function({id, row_id, navigation}) {
       <TouchableOpacity onPress={on_press_user} style={{flex: 7, flexDirection: "row", alignItems: "center"}}>
         <Avatar.Image size={64} source={{uri: snap_user.profile_image_url}} style={{marginRight: 10}}/>
         <View>
-          <Text variant="titleSmall">{snap_user.username}</Text>
+          <Text variant="titleMedium">{snap_user.username}</Text>
           {snap_user.name && <Text variant="bodySmall">{snap_user.name}</Text>}
           {row && row.contact_name && <Text variant="labelMedium" style={{color: colors.outline}}><MaterialCommunityIcons name="account-box-outline" size={14} />{row.contact_name}</Text>}
         </View>
