@@ -81,7 +81,6 @@ const UserPostList = function({ id, screen, navigation, emoji, number_columns, e
       }
     }
     
-    
     if (cache_data.cursor ) {
       query_args.push(startAfter(cache_data.cursor));
     }
@@ -111,6 +110,7 @@ const UserPostList = function({ id, screen, navigation, emoji, number_columns, e
         } else {
           await firestore.fetch_user_dependencies(items); 
         }
+
         _.each(items, function(item) {
           cache_set(item);
         });
@@ -161,6 +161,8 @@ const UserPostList = function({ id, screen, navigation, emoji, number_columns, e
       useNativeDriver: false,
     },
   );
+  
+  _.size(cache_snap_data.data);
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>

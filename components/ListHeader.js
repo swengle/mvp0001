@@ -106,7 +106,6 @@ const ListHeader = function({ is_error, on_press_retry, screen, is_refreshing, e
   
   const update_global_counts = async function() {
     $.session.global_counts = (await $.cf.get_global_counts()).data;
-    console.log($.session.global_counts);
     update_emojis();
   };
   
@@ -121,22 +120,23 @@ const ListHeader = function({ is_error, on_press_retry, screen, is_refreshing, e
   
   const on_press_emoji_group = function(group) {
     if (group === explore_screen_state.selected_group) {
-      set_explore_screen_state({});
-      return; 
+      explore_screen_state = {};
+    } else {
+      explore_screen_state.selected_group = group;
     }
-    explore_screen_state.selected_group = group;
     update_emojis();
+    set_explore_screen_state(_.extend({}, explore_screen_state));
   };
   
   
   const on_press_emoji = function(emoji) {
     if (emoji === explore_screen_state.selected_emoji) {
       delete explore_screen_state.selected_emoji;
-      set_explore_screen_state(_.extend({}, explore_screen_state));
-      return; 
+    } else {
+      explore_screen_state.selected_emoji = emoji;
     }
-    explore_screen_state.selected_emoji = emoji;
     update_emojis();
+    set_explore_screen_state(_.extend({}, explore_screen_state));
   };
   
   const render_emoji = function(row) {
