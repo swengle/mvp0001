@@ -60,7 +60,7 @@ const UserPostList = function({ id, screen, navigation, emoji, number_columns, e
     }
 
     let query_args;
-    if (screen === "DiscoveryScreen") {
+    if (screen === "DiscoverScreen") {
       query_args = [collection($.db, "users"), where("is_account_public", "==", true), orderBy("current_post_created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
       if (explore_screen_state.selected_emoji) {
         query_args.push(where("current_post_emoji_char", "==", explore_screen_state.selected_emoji.char));
@@ -126,8 +126,17 @@ const UserPostList = function({ id, screen, navigation, emoji, number_columns, e
       cache_data.is_loading_more ? cache_data.is_loading_more = false : cache_data.is_refreshing_delayed = cache_data.is_refreshing = false;
     }
   };
+  
+  const update_explore_counts = async function() {
+    $.session.global_counts = (await $.cf.get_global_counts()).data;
+  };
 
   const refresh = function() {
+    if (screen === "DiscoverScreen") {
+      update_explore_counts();
+      fetch();
+      return;
+    }
     cache_data.cursor = null;
     fetch();
   };
@@ -183,7 +192,7 @@ const UserPostList = function({ id, screen, navigation, emoji, number_columns, e
         ListFooterComponent = <ListFooter is_error={cache_snap_data.is_load_more_error} is_loading_more={cache_snap_data.is_loading_more} on_press_retry={on_press_retry}/>
         ListEmptyComponent = <ListEmpty data={explore_screen_state.is_search_active ? undefined : cache_snap_data.data} text="No users found!"/>
         refreshControl = {
-          (screen === "EmojiScreen" || screen === "DiscoveryScreen") ? undefined :
+          (screen === "EmojiScreen") ? undefined :
           <RefreshControl
             refreshing={cache_snap_data.is_refreshing}
             onRefresh={refresh}

@@ -62,7 +62,7 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, emoji
     }
 
     let query_args;
-    if (screen === "DiscoveryScreen") {
+    if (screen === "DiscoverScreen") {
       query_args = [collection($.db, "posts"), limit(fetch_sizes_by_number_columns[number_columns])];
       if (explore_screen_state.selected_emoji) {
         query_args.push(orderBy("created_at", "desc"));
@@ -164,7 +164,7 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, emoji
         ListFooterComponent = <ListFooter is_error={cache_snap_data.is_load_more_error} is_loading_more={cache_snap_data.is_loading_more} on_press_retry={on_press_retry}/>
         ListEmptyComponent = <ListEmpty data={cache_snap_data.data} text="No posts found"/>
         refreshControl = {
-          (screen === "EmojiScreen" || screen === "DiscoveryScreen") ? undefined :
+          (screen === "EmojiScreen" || screen === "DiscoverScreen") ? undefined :
           <RefreshControl
             refreshing={cache_snap_data.is_refreshing}
             onRefresh={refresh}

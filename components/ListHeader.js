@@ -1,14 +1,13 @@
 "use strict";
 import $ from "../setup";
 import _ from "underscore";
-import { Fragment, useCallback, useRef } from "react";
+import { Fragment, useRef } from "react";
 import { FlatList, useWindowDimensions, View } from 'react-native';
 import { ActivityIndicator, Avatar, Button, Divider, HelperText, Searchbar, SegmentedButtons, Text, useTheme } from "react-native-paper";
 import approx from "approximate-number";
 import TouchableOpacity  from "../components/TouchableOpacity";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import useCachedData from "../hooks/useCachedData";
-import { useFocusEffect } from '@react-navigation/native';
 import { useSnapshot } from "valtio";
 import useSearch from "../hooks/useSearch";
 import EmojiSearchResult from "../components/EmojiSearchResult";
@@ -92,7 +91,7 @@ const ListHeader = function({ is_error, on_press_retry, screen, is_refreshing, e
   const keyboard = useKeyboard();
 
   const update_emojis = function() {
-    if (explore_screen_state.selected_group) {
+    if (!explore_screen_state.is_search_active && explore_screen_state.selected_group) {
       const emojis_with_counts = [];
       _.each($.emoji_data_by_group[explore_screen_state.selected_group.name], function(emoji) {
         if ($.session.global_counts[emoji.char] > 0) {
@@ -104,28 +103,20 @@ const ListHeader = function({ is_error, on_press_retry, screen, is_refreshing, e
     }
   };
   
-  const update_global_counts = async function() {
-    $.session.global_counts = (await $.cf.get_global_counts()).data;
-    update_emojis();
-  };
-  
-  useFocusEffect(useCallback(function() {
-    update_global_counts();
-  }, [screen]));
-
-  
   const local_on_press_retry = function() {
     on_press_retry();
   };
   
   const on_press_emoji_group = function(group) {
     if (group === explore_screen_state.selected_group) {
-      explore_screen_state = {};
+      delete explore_screen_state.selected_group;
+      delete explore_screen_state.selected_emoji;
     } else {
       explore_screen_state.selected_group = group;
+      delete explore_screen_state.selected_emoji;
     }
-    update_emojis();
     set_explore_screen_state(_.extend({}, explore_screen_state));
+    update_emojis();
   };
   
   
@@ -151,9 +142,13 @@ const ListHeader = function({ is_error, on_press_retry, screen, is_refreshing, e
   const counts = useCachedData.cache_get("counts") || {};
   
   const local_on_searchbar_focus = function() {
+    navigation.push("SearchScreen");
+    /*
     explore_screen_state.is_searchbar_focused = true;
     explore_screen_state.is_search_active = true;
+    $.session.is_discover_search_active = true;
     set_explore_screen_state(_.extend({}, explore_screen_state));
+    */
   };
   
   const local_on_searchbar_blur = function() {
@@ -180,9 +175,11 @@ const ListHeader = function({ is_error, on_press_retry, screen, is_refreshing, e
   const on_press_cancel_searching = function() {
     search_clear();
     explore_screen_state.is_search_active = false;
+    $.session.is_discover_search_active = false;
     explore_screen_state.text = "";
     set_explore_screen_state(_.extend({}, explore_screen_state));
     ref_explore_searchbar.current.blur();
+    update_emojis();
   };
   
   const render_search_item = function(row) {
@@ -200,7 +197,7 @@ const ListHeader = function({ is_error, on_press_retry, screen, is_refreshing, e
     }
   };
   
-  const list_height = height - insets.top - 64 - (keyboard.keyboardShown ? keyboard.keyboardHeight : 0); // window height minus safearea inset and AppBar height
+  const list_height = height - insets.top - (keyboard.keyboardShown ? keyboard.keyboardHeight : 0); // window height minus safearea inset and (AppBar is hidden so no height)
   
   return (
     <Fragment>
@@ -210,11 +207,11 @@ const ListHeader = function({ is_error, on_press_retry, screen, is_refreshing, e
           <HelperText type="error">Somthing went wrong!</HelperText>
         </View>
       )}
-      {screen === "DiscoveryScreen" && (
+      {screen === "DiscoverScreen" && (
         <View style={{height: explore_screen_state.is_search_active ? list_height: undefined}}>
           <View style={{flex: 1}}>
             <View style={{flexDirection: "row", alignItems: "center"}}>
-              <View style={{flex:1}}><Searchbar ref={ref_explore_searchbar} style={{marginBottom: 4}} placeholder="Search" onFocus={local_on_searchbar_focus} onBlur={local_on_searchbar_blur} onChangeText={local_on_searchbar_change_text} value={explore_screen_state.text} autoCapitalize={false} autoCorrect={false} autoComplete="none"/></View>
+              <View style={{flex:1}}><Searchbar ref={ref_explore_searchbar} style={{marginBottom: 4, marginLeft: explore_screen_state.is_search_active ? 4 : 0}} placeholder="Search" onFocus={local_on_searchbar_focus} onBlur={local_on_searchbar_blur} onChangeText={local_on_searchbar_change_text} value={explore_screen_state.text} autoCapitalize={false} autoCorrect={false} autoComplete="none"/></View>
               {explore_screen_state.is_search_active && (<Button style={{marginHorizontal: 4}} onPress={on_press_cancel_searching}>cancel</Button>)}
             </View>
             {explore_screen_state.is_search_active && (
@@ -261,7 +258,7 @@ const ListHeader = function({ is_error, on_press_retry, screen, is_refreshing, e
                 {snap_session.global_counts[$.const.emoji_groups.activities.name] > 0 && <EmojiGroupButton group={$.const.emoji_groups.activities} on_press={on_press_emoji_group} is_selected={explore_screen_state.selected_group === $.const.emoji_groups.activities}/>}
                 {snap_session.global_counts[$.const.emoji_groups.objects.name] > 0 && <EmojiGroupButton group={$.const.emoji_groups.objects} on_press={on_press_emoji_group} is_selected={explore_screen_state.selected_group === $.const.emoji_groups.objects}/>}
                 {snap_session.global_counts[$.const.emoji_groups.symbols.name] > 0 && <EmojiGroupButton group={$.const.emoji_groups.symbols} on_press={on_press_emoji_group} is_selected={explore_screen_state.selected_group === $.const.emoji_groups.symbols}/>}
-                {snap_session.global_counts[$.const.emoji_groups.smileys.flags] > 0 && <EmojiGroupButton group={$.const.emoji_groups.flags} on_press={on_press_emoji_group} is_selected={explore_screen_state.selected_group === $.const.emoji_groups.flags}/>}
+                {snap_session.global_counts[$.const.emoji_groups.flags.name] > 0 && <EmojiGroupButton group={$.const.emoji_groups.flags} on_press={on_press_emoji_group} is_selected={explore_screen_state.selected_group === $.const.emoji_groups.flags}/>}
               </View>
               <Divider style={{marginBottom: 4}}/>
               {explore_screen_state.selected_group && (

@@ -51,8 +51,8 @@ const EnterCodeScreen = function({route, navigation}) {
         is_all_good = true;
       } else {
         $.auth.pin.attempts_left--;
+        $.display_error(toast, new Error("Invalid code. " + $.auth.pin.attempts_left + " attempt" + ($.auth.pin.attempts_left === 1 ? "" : "s") + " left."));
         if ($.auth.pin.attempts_left === 0) {
-          $.display_error(toast, new Error("Invalid code. " + $.auth.pin.attempts_left + " attempt" + ($.auth.pin.attempts_left === 1 ? "" : "s") + " left."));
           delete $.auth.pin;
           navigation.goBack();
         }
@@ -63,6 +63,7 @@ const EnterCodeScreen = function({route, navigation}) {
       set_value("");
     } finally {
       if (!is_all_good) {
+        set_value("");
         set_is_busy(false);
         ref.current && ref.current.focus(); 
       }

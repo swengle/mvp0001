@@ -71,7 +71,7 @@ const EmojiSelector = function({style, onLoaded, onSelect}) {
   const [searchText, setSearchText] = useState("");
   const [emojis, setEmojis] = useState({enabled: {}, data: []});
   const [search_text, set_search_text] = useState("");
-  const { search_data, search_emojis, search_clear } = useSearch();
+  const { search_data, search_emojis } = useSearch();
   
   useEffect(() => {
     if (searchText === "" && !_.size(emojis.data)) {
@@ -97,31 +97,6 @@ const EmojiSelector = function({style, onLoaded, onSelect}) {
       return;
     } else {
       search_emojis(searchText);
-      /*
-      const result = [];
-      _.each($.emoji_data, function(emoji_data) {
-        delete emoji_data.parts_by_keyword;
-        let is_candidate = false;
-        _.each(emoji_data.keywords, function(keyword) {
-          if (keyword.indexOf(searchText) === 0) {
-            is_candidate = true;
-            if (!emoji_data.parts_by_keyword) {
-              emoji_data.parts_by_keyword = {};
-            }
-            emoji_data.parts_by_keyword[keyword] = {parts: keyword.split(new RegExp(`(${searchText})`, 'gi'))};
-            _.each(emoji_data.parts_by_keyword[keyword].parts, function(part, index) {
-              if (part === searchText) {
-                emoji_data.parts_by_keyword[keyword].part_index = index;
-              }
-            });
-          }
-        });
-        if (is_candidate) {
-          result.push(emoji_data); 
-        }
-      });
-      prepData(result);
-      */
     }
   }, [searchText]);
   
@@ -154,7 +129,7 @@ const EmojiSelector = function({style, onLoaded, onSelect}) {
     if (item.is_group) {
       return <View style={{height: 50}}><Surface style={{paddingVertical: 2, paddingLeft: 10, marginVertical: index === 0 ? 0 : 10}}><Text variant="titleMedium" style={{}}>{item.key}</Text></Surface></View>;
     }
-    return searchText !== "" ? <EmojiSearchResult emoji={item}/> : <Emoji item={item.data} onPress={on_press} isInSearch={(searchText !== "")} index={index}/>;
+    return searchText !== "" ? <EmojiSearchResult emoji={item} on_press={on_press}/> : <Emoji item={item.data} onPress={on_press} isInSearch={(searchText !== "")} index={index}/>;
   };
 
   return (

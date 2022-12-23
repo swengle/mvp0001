@@ -40,7 +40,9 @@ const UserListScreen = function({navigation, route}) {
     }
     let q_args;
     if (screen === "LikersScreen") {
-      q_args = [collectionGroup($.db, "reactions"), where("kind", "==", "like"), where("parent_id", "==", id), orderBy("created_at", "desc"), limit(FETCH_SIZE)];
+      q_args = [collectionGroup($.db, "reactions"), where("parent_id", "==", id), where("kind", "==", "like"), orderBy("updated_at", "desc"), limit(FETCH_SIZE)];
+      
+      
     } else {
       q_args = [collectionGroup($.db, "relationships"), where("status", "==", "follow"), orderBy("updated_at", "desc"), limit(FETCH_SIZE)];
       if (screen === "FollowingScreen") {
@@ -77,7 +79,10 @@ const UserListScreen = function({navigation, route}) {
           user_ids = _.pluck(data, "uid");
         }
 
-        await firestore.load_users({ ids : user_ids }, cache_set);
+        const users = await firestore.load_users(user_ids);
+        _.each(users, function(user) {
+          cache_set(user);
+        });
       } else if (cache_data.is_refreshing) {
         cache_empty();
       }

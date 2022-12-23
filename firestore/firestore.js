@@ -269,7 +269,27 @@ const firestore = {
         const comment_ref = doc(db, "users/" + parent_user_id+ "/reactions", parent_id);
         await transaction.update(comment_ref, updates);
       }
-      await transaction.set(reaction_ref, { updated_at: Timestamp.now(), is_liked: true, like_count: increment(1), rev: increment(1), parent_user_id: parent_user_id, parent_id: parent_id, parent_kind: parent_kind });
+      
+      
+      const now = Timestamp.now();
+      
+      const like = {
+        uid: $.session.uid,
+        updated_at: now, 
+        is_liked: true, 
+        like_count: increment(1), 
+        rev: increment(1), 
+        parent_user_id: parent_user_id, 
+        parent_id: parent_id, 
+        parent_kind: parent_kind, 
+        kind: "like"
+      };
+      
+      if (!reaction_doc_snap.exists()) {
+        like.created_at = now;
+      }
+      
+      await transaction.set(reaction_ref, like);
 
     });
   },

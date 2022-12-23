@@ -6,8 +6,10 @@ import { View } from "react-native";
 import { Appbar, Menu, Text } from "react-native-paper";
 import GridMenu from "../../components/GridMenu";
 import UserPostList from "../../components/UserPostList";
+import { useSnapshot } from "valtio";
 
 const UserPostListScreen = function({navigation, route}) {
+  const snap_session = useSnapshot($.session);
   const screen = (route && route.params) ? route.params.screen : "HomeScreen";
   let id, title, emoji;
   if (screen === "HomeScreen") {
@@ -16,8 +18,8 @@ const UserPostListScreen = function({navigation, route}) {
   } else if (screen === "EmojiScreen") {
     emoji = $.emoji_data_by_char[route.params.emoji];
     title = <View style={{flexDirection: "row", alignItems: "center", justifyContent: "center"}}><Text style={{fontFamily: "TwemojiMozilla", fontSize: 24}}>{emoji.char}</Text><Text variant="titleMedium"> {emoji.name}</Text></View>;
-  } else if (screen === "DiscoveryScreen") {
-    title = "Discovery";
+  } else if (screen === "DiscoverScreen") {
+    title = "Discover";
   } else if (screen === "HistoryScreen") {
     id = screen;
     title = "History";
@@ -49,17 +51,19 @@ const UserPostListScreen = function({navigation, route}) {
 
   return (
     <SafeAreaView style ={{flex: 1}} edges={['top', 'left', 'right']}>
-      <Appbar.Header>
-        {(screen !== "HomeScreen" && screen !== "DiscoveryScreen") && <Appbar.BackAction onPress={on_press_back} />}
-        <Appbar.Content title={title} />
-        <Menu
-          anchorPosition="bottom"
-          visible={is_gridmenu_visible}
-          onDismiss={on_dismiss_gridmenu}
-          anchor={<Appbar.Action icon="view-grid" onPress={on_press_gridmenu}/>}>
-          <GridMenu on_press_grid={on_press_grid}/>
-        </Menu>
-      </Appbar.Header>
+      {!(screen === "DiscoverScreen" && snap_session.is_discover_search_active) && (
+        <Appbar.Header>
+          {(screen !== "HomeScreen" && screen !== "DiscoverScreen") && <Appbar.BackAction onPress={on_press_back} />}
+          <Appbar.Content title={title} />
+          <Menu
+            anchorPosition="bottom"
+            visible={is_gridmenu_visible}
+            onDismiss={on_dismiss_gridmenu}
+            anchor={<Appbar.Action icon="view-grid" onPress={on_press_gridmenu}/>}>
+            <GridMenu on_press_grid={on_press_grid}/>
+          </Menu>
+        </Appbar.Header>
+      )}
       {!emoji_screen_state.segment_value && <UserPostList id={id} screen={screen} navigation={navigation} number_columns={number_columns} emoji={emoji}/>}
       {emoji_screen_state.segment_value === "everyone" && <UserPostList id={"emoji-everyone"} screen={screen} navigation={navigation} number_columns={number_columns} emoji={emoji} set_emoji_screen_state={set_emoji_screen_state} emoji_screen_state={emoji_screen_state}/>}
       {emoji_screen_state.segment_value === "you" && <UserPostList id={"emoji-you"} screen={screen} navigation={navigation} number_columns={number_columns} emoji={emoji} set_emoji_screen_state={set_emoji_screen_state} emoji_screen_state={emoji_screen_state}/>}

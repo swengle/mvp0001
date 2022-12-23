@@ -1,11 +1,11 @@
 import $ from "../setup";
 import _ from "underscore";
 import { useState, useEffect } from 'react';
-import { collection, getDocs, limit, query, startAfter, where, orderBy } from "firebase/firestore";
+import { collection, getDocs, limit, query, where } from "firebase/firestore";
 
 const useSearch = function() {
   const [cache, set_cache] = useState({});
-  const [search_data, set_search_data] = useState({});
+  const [search_data, set_search_data] = useState({data: undefined, is_group_enabled: {}});
   const [is_searching, set_is_searching] = useState(false);
   const [is_searching_error, set_is_searching_error] = useState(false);
   
