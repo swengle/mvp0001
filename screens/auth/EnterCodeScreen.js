@@ -21,6 +21,7 @@ const auth = getAuth();
 
 
 const EnterCodeScreen = function({route, navigation}) {
+  const [is_active, set_is_active] = useState(true);
   const snap_auth = useSnapshot($.auth);
   const { colors } = useTheme();
   const [is_busy, set_is_busy] = useState(false);
@@ -33,6 +34,7 @@ const EnterCodeScreen = function({route, navigation}) {
   });
   
   const on_press_not_my_number = function() {
+    set_is_active(false);
     $.auth.phone_value = "";
     _.delay(function() {
       navigation.goBack();
@@ -41,6 +43,9 @@ const EnterCodeScreen = function({route, navigation}) {
   
   
   const on_blur = async function() {
+    if (!is_active) {
+      return;
+    }
     let is_all_good = false;
     try {
       set_is_busy(true);

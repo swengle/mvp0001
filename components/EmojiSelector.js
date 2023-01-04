@@ -1,15 +1,15 @@
 "use strict";
 import $ from "../setup";
-import React, { useEffect, useRef, useState}  from "react";
+import React, { useCallback, useEffect, useRef, useState}  from "react";
 import _ from "underscore";
-import { Keyboard, KeyboardAvoidingView, Platform, View} from 'react-native';
+import { InteractionManager, Keyboard, View} from 'react-native';
 import TouchableOpacity  from "../components/TouchableOpacity";
 import { Divider, Searchbar, Surface, Text, useTheme } from 'react-native-paper';
 import { FlashList } from "@shopify/flash-list";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import useSearch from "../hooks/useSearch";
 import EmojiSearchResult from "../components/EmojiSearchResult";
-
+import { useFocusEffect } from '@react-navigation/native';
 
 const ICON_WIDTH = 40;
 const ROW_HEIGHT = 50;
@@ -68,10 +68,18 @@ class Emoji extends React.PureComponent {
 
 const EmojiSelector = function({style, onLoaded, onSelect}) {
   const refFlatList = useRef();
+  const ref_searchbar = useRef();
   const [searchText, setSearchText] = useState("");
   const [emojis, setEmojis] = useState({enabled: {}, data: []});
   const [search_text, set_search_text] = useState("");
   const { search_data, search_emojis } = useSearch();
+  
+  useFocusEffect(useCallback(() => {
+    // wait for transition animation to finish
+    InteractionManager.runAfterInteractions(() => {
+      ref_searchbar.current?.focus();
+    });
+  }, []));
   
   useEffect(() => {
     if (searchText === "" && !_.size(emojis.data)) {
@@ -133,8 +141,8 @@ const EmojiSelector = function({style, onLoaded, onSelect}) {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
-      <Searchbar placeholder="Search" onChangeText={on_change_text} value={search_text} autoCapitalize={false} autoCorrect={false} autoComplete="none"/>
+    <View style={{flex:1}}>
+      <Searchbar ref={ref_searchbar} placeholder="Search" onChangeText={on_change_text} value={search_text} autoCapitalize={false} autoCorrect={false} autoComplete="none"/>
       <View style={{flexDirection: "row", paddingVertical: 4}} keyboardShouldPersistTaps="always">
         <EmojiTypeButton group={$.const.emoji_groups.smileys} on_press={on_press_emoji_type} is_disabled={searchText !== "" ? !search_data.is_group_enabled[$.const.emoji_groups.smileys.name] : !emojis.enabled[$.const.emoji_groups.smileys.name]}/>
         <EmojiTypeButton group={$.const.emoji_groups.people} on_press={on_press_emoji_type} is_disabled={searchText !== "" ? !search_data.is_group_enabled[$.const.emoji_groups.people.name] : !emojis.enabled[$.const.emoji_groups.people.name]}/>
@@ -153,11 +161,10 @@ const EmojiSelector = function({style, onLoaded, onSelect}) {
         ref={refFlatList}
         data={searchText !== "" ? search_data.data : (emojis && emojis.data)}
         renderItem={render}
-        removeClippedSubviews={true}
         keyExtractor={(item) => item.key || item.char}
         estimatedItemSize={searchText !== "" ? 60 : 49}
       />
-    </KeyboardAvoidingView>
+    </View>
   );
 };
 

@@ -270,25 +270,20 @@ const firestore = {
         await transaction.update(comment_ref, updates);
       }
       
-      
       const now = Timestamp.now();
       
       const like = {
         uid: $.session.uid,
         updated_at: now, 
         is_liked: true, 
-        like_count: increment(1), 
+        internal_like_count: increment(1), 
         rev: increment(1), 
         parent_user_id: parent_user_id, 
         parent_id: parent_id, 
         parent_kind: parent_kind, 
         kind: "like"
       };
-      
-      if (!reaction_doc_snap.exists()) {
-        like.created_at = now;
-      }
-      
+
       await transaction.set(reaction_ref, like);
 
     });
@@ -336,7 +331,7 @@ const firestore = {
             const comment_ref = doc(db, "users/" + parent_user.id+ "/reactions", parent_id);
             await transaction.update(comment_ref, updates);
           }
-          await transaction.update(reaction_ref, { updated_at: Timestamp.now(), is_liked: false, rev: increment(1) });
+          await transaction.update(reaction_ref, { updated_at: Timestamp.now(), is_liked: deleteField(), rev: increment(1) });
         }
       }
     });
@@ -567,7 +562,7 @@ const firestore = {
   update_relationship: async function(params) {
     const current_user_ref = doc(db, "users", $.session.uid);
     const user_ref = doc(db, "users", params.id);
-    const relationship_doc_ref = doc(db, "users" + $.session.uid + "/relationships", params.id);
+    const relationship_doc_ref = doc(db, "users/" + $.session.uid + "/relationships", params.id);
     const other_relationship_ref = doc(db, "users/" + params.id + "/relationships", $.session.uid);
 
     const current_user = $.get_current_user();

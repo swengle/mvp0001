@@ -40,9 +40,7 @@ const UserListScreen = function({navigation, route}) {
     }
     let q_args;
     if (screen === "LikersScreen") {
-      q_args = [collectionGroup($.db, "reactions"), where("parent_id", "==", id), where("kind", "==", "like"), orderBy("updated_at", "desc"), limit(FETCH_SIZE)];
-      
-      
+      q_args = [collectionGroup($.db, "reactions"), where("parent_id", "==", id), where("parent_id", "==", id), where("is_liked", "==", true), orderBy("updated_at", "desc"), limit(FETCH_SIZE)];
     } else {
       q_args = [collectionGroup($.db, "relationships"), where("status", "==", "follow"), orderBy("updated_at", "desc"), limit(FETCH_SIZE)];
       if (screen === "FollowingScreen") {
@@ -61,6 +59,7 @@ const UserListScreen = function({navigation, route}) {
     cache_data.cursor ? cache_data.is_loading_more = true : cache_data.is_refreshing = true;
     try {
       const respone_docs = await getDocs(q);
+      
       if (!cache_data.cursor) {
         cache_reset();
       }
@@ -79,7 +78,7 @@ const UserListScreen = function({navigation, route}) {
           user_ids = _.pluck(data, "uid");
         }
 
-        const users = await firestore.load_users(user_ids);
+        const users = await firestore.fetch_users(user_ids);
         _.each(users, function(user) {
           cache_set(user);
         });

@@ -106,7 +106,7 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
   };
   
   const on_press_likes_inner = function() {
-     _.isFunction(on_press_likes) && on_press_likes();
+    _.isFunction(on_press_likes) && on_press_likes();
     navigation.push("UserListScreen", {screen: "LikersScreen", id: id});
   };
   

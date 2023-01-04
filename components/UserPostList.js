@@ -7,7 +7,7 @@ import { useToast } from "react-native-toast-notifications";
 import ListHeader from "../components/ListHeader";
 import ListFooter from "../components/ListFooter";
 import ListEmpty from "../components/ListEmpty";
-import { collection, getDocs, limit, query, startAfter, where, orderBy } from "firebase/firestore";
+import { collection, getDocs, limit, onSnapshot, query, startAfter, where, orderBy } from "firebase/firestore";
 import { useTheme } from "react-native-paper";
 import UserPost from "../components/UserPost";
 import useCachedData from "../hooks/useCachedData";
@@ -25,7 +25,7 @@ const UserPostList = function({ id, screen, navigation, emoji, number_columns, e
   const { colors } = useTheme();
   const [explore_screen_state, set_explore_screen_state] = useState({segment_value: "users"});
 
-  const {cache_data, cache_snap_data, cache_sync, cache_empty, cache_reset, cache_set} = useCachedData({
+  const {cache_data, cache_snap_data, cache_sync, cache_empty, cache_reset, cache_set, cache_unset} = useCachedData({
     id: id,
     is_refreshing: false,
     is_refresh_error: false,
@@ -53,7 +53,6 @@ const UserPostList = function({ id, screen, navigation, emoji, number_columns, e
     refresh();
   }, [explore_screen_state]);
   
-  
   const fetch = async function() {
     if (cache_data.is_refreshing || cache_data.is_loading_more) {
       return;
@@ -70,8 +69,7 @@ const UserPostList = function({ id, screen, navigation, emoji, number_columns, e
     } else if (screen == "HistoryScreen") {
       query_args = [collection($.db, "users/" + $.session.uid + "/posts"), orderBy("created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
     } else if (screen === "HomeScreen") {
-      // this will be from the feed eventually
-      query_args = [collection($.db, "users"), orderBy("current_post_created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
+      query_args = [collection($.db, "users/" + $.session.uid + "/timeline"), orderBy("created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
     } else if (screen === "EmojiScreen") {
       query_args = [collection($.db, "users"), where("current_post_emoji_char", "==", emoji.char), where("is_account_public", "==", true), orderBy("current_post_created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
       if (emoji_screen_state.segment_value === "you") {
@@ -86,44 +84,118 @@ const UserPostList = function({ id, screen, navigation, emoji, number_columns, e
     }
     
     const q = query(...query_args);
-    cache_data.cursor ? cache_data.is_loading_more = true : cache_data.is_refreshing = true;
-    const items = [];
+    
+    if (cache_data.cursor) {
+      cache_data.is_loading_more = true;
+      cache_data.is_refreshing = false;
+    } else {
+      cache_data.is_refreshing = true;
+      cache_data.is_loading_more = false;
+    }
+
+    let items = [];
 
     try {
-      const snap_docs = await getDocs(q);
-      if (!cache_data.cursor) {
-        cache_reset();
-      }
-      const size = _.size(snap_docs.docs);
-      if (size === fetch_sizes_by_number_columns[number_columns]) {
-        cache_data.cursor = _.last(snap_docs.docs);
-      } else {
-        cache_data.cursor = null;
-      }
-      if (size > 0) {
-        _.each(snap_docs.docs, function(doc) {
-          items.push(doc.data());
-        });
+      if (screen === "HomeScreen" && cache_data.is_refreshing) {
+        cache_data.is_first_timeline_snapshot = true;
+        cache_data.timeline_subscription && cache_data.timeline_subscription();
         
-        if (screen == "HistoryScreen") {
-          await firestore.fetch_post_dependencies(items);
-        } else {
-          await firestore.fetch_user_dependencies(items); 
-        }
-
-        _.each(items, function(item) {
-          cache_set(item);
-        });
-        cache_sync();
+        cache_data.timeline_subscription = onSnapshot(q, async function(snapshot) {
+          const added_user_ids = [];
+          const removed_user_ids = [];
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === "added") {
+              added_user_ids.push(change.doc.data().uid);
+            }
+            if (change.type === "modified") {
+              added_user_ids.push(change.doc.data().uid);
+            }
+            if (change.type === "removed") {
+              removed_user_ids.push(change.doc.data().uid);
+            }
+          });
+          
+          if (cache_data.is_first_timeline_snapshot) {
+            cache_data.is_first_timeline_snapshot = false;
+            
+            if (_.size(added_user_ids) === fetch_sizes_by_number_columns[number_columns]) {
+              cache_data.cursor = (_.last(snapshot.docChanges())).doc;
+            } else {
+              cache_data.cursor = null;
+            }
+            
+            cache_reset();
+            if (_.size(added_user_ids) > 0) {
+              const items = await firestore.fetch_users(added_user_ids);
+              _.each(items, function(item) {
+                cache_set(item);
+              });
+              cache_sync();
+            }
+            cache_data.is_refreshing = false;
+          } else {
+            if (_.size(added_user_ids)) {
+              const items = await firestore.fetch_users(added_user_ids);
+              _.each(items, function(item) {
+                cache_unset(item.id); 
+                cache_set(item);
+              });
+              cache_sync(0);
+            }
+            
+            if (_.size(removed_user_ids) > 0) {
+              _.each(removed_user_ids, function(removed_user_id) {
+                cache_unset(removed_user_id); 
+              });
+            }
+          }
+        }); 
       } else {
-        cache_empty(); 
+        const snap_docs = await getDocs(q);
+        if (!cache_data.cursor) {
+          cache_reset();
+        }
+        const size = _.size(snap_docs.docs);
+        if (size === fetch_sizes_by_number_columns[number_columns]) {
+          cache_data.cursor = _.last(snap_docs.docs);
+        } else {
+          cache_data.cursor = null;
+        }
+        if (size > 0) {
+          _.each(snap_docs.docs, function(doc) {
+            items.push(doc.data());
+          });
+          
+          if (screen === "HomeScreen") {
+            const user_ids = [];
+            _.each(items, function(item) {
+              user_ids.push(item.uid);
+            });
+            items = await firestore.fetch_users(user_ids);
+          } else if (screen == "HistoryScreen") {
+            await firestore.fetch_post_dependencies(items);
+          } else {
+            await firestore.fetch_user_dependencies(items);
+          }
+  
+          _.each(items, function(item) {
+            cache_set(item);
+          });
+          cache_sync();
+        } else {
+          cache_empty(); 
+        } 
       }
     } catch (e) {
       $.logger.error(e);
       cache_data.is_loading_more ? cache_data.is_load_more_error = true : cache_data.is_refresh_error = true;
       $.display_error(toast, new Error("Failed to load users."));
     } finally {
-      cache_data.is_loading_more ? cache_data.is_loading_more = false : cache_data.is_refreshing_delayed = cache_data.is_refreshing = false;
+      if (screen === "HomeScreen" && cache_data.is_refreshing) {
+        // since we are waiting on a callback
+      } else {
+        cache_data.is_loading_more ? cache_data.is_loading_more = false : cache_data.is_refreshing = false; 
+      }
     }
   };
   
@@ -172,6 +244,11 @@ const UserPostList = function({ id, screen, navigation, emoji, number_columns, e
   );
   
   _.size(cache_snap_data.data);
+  
+  let empty_text = "No users found!";
+  if (screen === "HomeScreen") {
+    empty_text = "Your friends updates will appear live here. Make sure to add friends to see what they are feeling!";
+  }
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
@@ -190,7 +267,7 @@ const UserPostList = function({ id, screen, navigation, emoji, number_columns, e
           emoji_screen_state={emoji_screen_state} set_emoji_screen_state={set_emoji_screen_state}
           />
         ListFooterComponent = <ListFooter is_error={cache_snap_data.is_load_more_error} is_loading_more={cache_snap_data.is_loading_more} on_press_retry={on_press_retry}/>
-        ListEmptyComponent = <ListEmpty data={explore_screen_state.is_search_active ? undefined : cache_snap_data.data} text="No users found!"/>
+        ListEmptyComponent = <ListEmpty text={empty_text} is_refreshing={cache_data.is_refreshing}/>
         refreshControl = {
           (screen === "EmojiScreen") ? undefined :
           <RefreshControl

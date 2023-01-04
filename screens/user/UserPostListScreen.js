@@ -48,6 +48,10 @@ const UserPostListScreen = function({navigation, route}) {
   const on_press_back = function() {
     navigation.goBack();
   };
+  
+  const on_press_search = function() {
+    navigation.push("SearchScreen");
+  };
 
   return (
     <SafeAreaView style ={{flex: 1}} edges={['top', 'left', 'right']}>
@@ -55,6 +59,9 @@ const UserPostListScreen = function({navigation, route}) {
         <Appbar.Header>
           {(screen !== "HomeScreen" && screen !== "DiscoverScreen") && <Appbar.BackAction onPress={on_press_back} />}
           <Appbar.Content title={title} />
+          {screen === "DiscoverScreen" && (
+            <Appbar.Action icon="magnify" onPress={on_press_search}/>
+          )}
           <Menu
             anchorPosition="bottom"
             visible={is_gridmenu_visible}

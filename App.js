@@ -107,6 +107,7 @@ export default function App() {
   useEffect(() => {
     async function prepare() {
       try {
+        // save any changes to $.app in storage
         unsubscribe_app = subscribe($.app, function() {
           AsyncStorage.setItem("@state", JSON.stringify($.app));
         });
@@ -129,7 +130,7 @@ export default function App() {
                 counts.id = "counts";
                 useCachedData.cache_set(counts);
               });
-              
+
               $.session.global_counts = (await $.cf.get_global_counts()).data;
               
               
@@ -149,7 +150,7 @@ export default function App() {
             $.session.is_splash_hidden = true;
             _.delay(async function() {
               await SplashScreen.hideAsync();
-            }, 100);
+            }, 1);
           }
         });
         
@@ -170,9 +171,7 @@ export default function App() {
         await Asset.loadAsync(require('./assets/dark-puzzled-500.png'));
         await Asset.loadAsync(require('./assets/light-puzzled-500.png'));
         
-        await Font.loadAsync({
-          "TwemojiMozilla": require("./assets/TwemojiMozilla.ttf")
-        });
+        await Font.loadAsync({"TwemojiMozilla": require("./assets/TwemojiMozilla.ttf")});
 
         const stored_snap_app = await AsyncStorage.getItem("@state");
         if (stored_snap_app) {
@@ -195,7 +194,6 @@ export default function App() {
     
     return turn_off_subscriptions;
   }, []);
-  
   
   if (!$.session.is_prep_ready || !$.session.is_auth_ready) {
     return null;

@@ -32,6 +32,10 @@ const useCachedData = function(options) {
   const cache_set = function(entity, options) {
     return useCachedData.cache_set(entity, cache_data, options);
   };
+  
+  const cache_unset = function(id) {
+    return useCachedData.cache_unset(id, cache_data);
+  };
 
   const unshift_entity_already_in_cache = function(id) {
     useCachedData.unshift_entity_already_in_cache(id, cache_data);
@@ -45,7 +49,7 @@ const useCachedData = function(options) {
     return useCachedData.cache_get_snap(id);
   };
 
-  return { cache_data, cache_snap_data: useSnapshot(cache_data), cache_sync, cache_reset, cache_empty, cache_set, cache_get, cache_get_snap, unshift_entity_already_in_cache };
+  return { cache_data, cache_snap_data: useSnapshot(cache_data), cache_sync, cache_reset, cache_empty, cache_set, cache_unset, cache_get, cache_get_snap, unshift_entity_already_in_cache };
 };
 
 useCachedData.cache_data_get = function(id) {
@@ -113,7 +117,6 @@ useCachedData.cache_unset = function(id) {
 useCachedData.cache_sync = function(cache_data, index) {
   if (_.size(cache_data.pending)) {
     if (cache_data.data === null || cache_data.is_refreshing) {
-      cache_data.is_reset = false;
       cache_data.data = cache_data.pending;
     }
     else {

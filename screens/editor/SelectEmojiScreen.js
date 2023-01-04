@@ -1,7 +1,7 @@
 "use strict";
 import $ from "../../setup";
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Keyboard, Text } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Platform, Text } from 'react-native';
 import TouchableOpacity  from "../../components/TouchableOpacity";
 import EmojiSelector from "../../components/EmojiSelector";
 import { useSnapshot } from "valtio";
@@ -24,15 +24,18 @@ const SelectEmojiScreen = function({ navigation }) {
     Keyboard.dismiss();
     navigation.push("DetailsScreen");
   };
+  
 
   return (
-    <SafeAreaView style ={{flex: 1}} edges={["right", "bottom", "left"]}>
-      <Appbar.Header>
-        <Appbar.BackAction onPress={on_press_back} />
-        <Appbar.Content title="What's your mood?" />
-        {snap_editor.emoji && <TouchableOpacity onPress={on_press_forward} style={{paddingRight: 10}}><Text style={{ fontFamily: "TwemojiMozilla", fontSize: 42, width: 42}}>{snap_editor.emoji.base}</Text></TouchableOpacity>}
-      </Appbar.Header>
-      <EmojiSelector onSelect={on_emoji_select}/>
+    <SafeAreaView style ={{flex: 1}} edges={["top", "right", "left", "bottom"]}>
+      <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : undefined} style={{flex: 1}}>
+        <Appbar.Header>
+          <Appbar.BackAction onPress={on_press_back} />
+          <Appbar.Content title="What ya feelin?" />
+          {snap_editor.emoji && <TouchableOpacity onPress={on_press_forward} style={{paddingRight: 10}}><Text style={{ fontFamily: "TwemojiMozilla", fontSize: 42, width: 42}}>{snap_editor.emoji.char}</Text></TouchableOpacity>}
+        </Appbar.Header>
+        <EmojiSelector onSelect={on_emoji_select}/>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };

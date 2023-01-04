@@ -107,7 +107,7 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, emoji
       cache_data.is_loading_more ? cache_data.is_load_more_error = true : cache_data.is_refresh_error = true;
       $.display_error(toast, new Error("Failed to load users."));
     } finally {
-      cache_data.is_loading_more ? cache_data.is_loading_more = false : cache_data.is_refreshing_delayed = cache_data.is_refreshing = false;
+      cache_data.is_loading_more ? cache_data.is_loading_more = false : cache_data.is_refreshing = false;
     }
   };
 

@@ -3,11 +3,10 @@ import $ from "../../setup";
 import _ from "underscore";
 import { useState } from "react";
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { FlatList, StyleSheet, View } from "react-native";
+import { KeyboardAvoidingView, Platform, FlatList, View } from "react-native";
 import TouchableOpacity  from "../../components/TouchableOpacity";
 import { useSnapshot } from 'valtio';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { useKeyboard } from '@react-native-community/hooks';
 import { Appbar, Divider, Searchbar, Text, useTheme } from 'react-native-paper';
 
 const offset = 127397;
@@ -69,30 +68,26 @@ const ScreenSelectCountry = function({ navigation }) {
     }
   };
   
-  const keyboardHeight = useKeyboard();
+
   return (
     <SafeAreaView style ={{flex: 1}} edges={['right', 'left']}>
       <Appbar.Header>
         <Appbar.BackAction onPress={on_press_back} />
         <Appbar.Content title="Select Country" />
       </Appbar.Header>
-      <Searchbar placeholder="Search" onChangeText={on_change_text} value={search_text} autoCapitalize={false} autoCorrect={false} autoComplete="none" autoFocus={true}/>
-      <FlatList
-        keyboardShouldPersistTaps="always"
-        style={[{marginBottom: keyboardHeight.coordinates.end.height}, styles.flat_list]}
-        data={countries}
-        renderItem={render_country}
-        keyExtractor = { item => item.cca2 }
-      />
+      <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
+        <Searchbar placeholder="Search" onChangeText={on_change_text} value={search_text} autoCapitalize={false} autoCorrect={false} autoComplete="none" autoFocus={true}/>
+        <FlatList
+          keyboardShouldPersistTaps="always"
+          style={{flex: 1}}
+          data={countries}
+          renderItem={render_country}
+          keyExtractor = { item => item.cca2 }
+        />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
-
-const styles = StyleSheet.create({
-  flat_list: {
-    flex: 1
-  }
-});
 
 export default ScreenSelectCountry;

@@ -48,7 +48,7 @@ const DiscoverStack = function() {
       <DiscoverStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
       <DiscoverStackNavigator.Screen name="SettingsStack" component={SettingsStack} options={{headerShown: false}}/>
       <DiscoverStackNavigator.Screen name="ContactsStack" component={ContactsStack} options={{headerShown: false}}/>
-      <DiscoverStackNavigator.Screen name="SearchScreen" component={SearchScreen} options={{headerShown: false}}/>
+      <DiscoverStackNavigator.Screen name="SearchScreen" component={SearchScreen} options={{headerShown: false, ...TransitionPresets.ScaleFromCenterAndroid}}/>
     </DiscoverStackNavigator.Navigator>
   );
 };
@@ -175,7 +175,7 @@ const MainStack = function() {
   }
 
   return (
-    <MainStackNavigator.Navigator screenOptions={{headerShown: false, ...TransitionPresets.ModalPresentationIOS}}>
+    <MainStackNavigator.Navigator screenOptions={{headerShown: false, ...TransitionPresets.ScaleFromCenterAndroid}}>
       {!snap_current_user.username && (
         <MainStackNavigator.Group>
           <MainStackNavigator.Screen name="NameScreen" component={NameScreen}/>

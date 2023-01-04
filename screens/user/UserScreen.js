@@ -14,7 +14,6 @@ import UserPost from "../../components/UserPost";
 import Comment from "../../components/Comment";
 import ListFooter from "../../components/ListFooter";
 
-
 const FETCH_SIZE = 16;
 const SUBCOMMENT_FETCH_SIZE = 1;
 
@@ -298,7 +297,7 @@ const UserScreen= function({navigation, route}) {
     navigation.goBack();
   };
 
-  const post_count = snap_user.post_count || 0;
+  const post_count = _.isNumber(snap_user.post_count) ? snap_user.post_count-1 : 0;
   
   const on_press_settings = function() {
     navigation.push("SettingsStack");

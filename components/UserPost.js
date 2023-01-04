@@ -16,8 +16,6 @@ import EmojiOverlay from "../components/EmojiOverlay";
 const UserPost = function({id, navigation, number_columns, screen, on_press_comment, on_press_comments, on_press_like, on_press_likes}) {
   const anim = useRef(new Animated.Value(1));
   const [is_image_loaded, set_is_image_loaded] = useState(false);
-  const [is_liking, set_is_liking] = useState(false);
-  const [is_unliking, set_is_unliking] = useState(false);
   const { colors } = useTheme();
 
   const user = useCachedData.cache_get(id);
@@ -41,11 +39,11 @@ const UserPost = function({id, navigation, number_columns, screen, on_press_comm
   
   const on_press_like_inner = async function() {
     _.isFunction(on_press_like) && on_press_like();
-    if (!snap_user.current_post.is_liked) {
+    if (!user.current_post.is_liked) {
       Animated.sequence([
         // increase size
         Animated.timing(anim.current, {
-          toValue: 1.6, 
+          toValue: 1.75, 
           duration: 250,
           useNativeDriver: true
         }, ),
@@ -57,23 +55,24 @@ const UserPost = function({id, navigation, number_columns, screen, on_press_comm
         }),
         
       ]).start();
-        
-      set_is_liking(true);
+      _.isNumber(user.current_post.like_count) ? user.current_post.like_count++ : user.current_post.like_count = 1;
+      user.current_post.is_liked = true;
       try {
         await firestore.create_like(user.id, user.current_post.id, "post");
       } catch (e) {
         $.logger.error(e);
-      } finally {
-        set_is_liking(false);
+        user.current_post.like_count--;
+        user.current_post.is_liked = false;
       }
     } else {
-      set_is_unliking(true);
+      _.isNumber(user.current_post.like_count) ? user.current_post.like_count-- : user.current_post.like_count = 0;
+      user.current_post.is_liked = false;
       try {
         await firestore.delete_like(user.current_post.id);
       } catch (e) {
         $.logger.error(e);
-      } finally {
-        set_is_unliking(false);
+        user.current_post.like_count++;
+        user.current_post.is_liked = true;
       }
     }
   };
@@ -94,7 +93,7 @@ const UserPost = function({id, navigation, number_columns, screen, on_press_comm
   
   const on_press_likes_inner = function() {
      _.isFunction(on_press_likes) && on_press_likes();
-    navigation.push("UserListScreen", {screen: "LikersScreen", id: id});
+    navigation.push("UserListScreen", {screen: "LikersScreen", id: user.current_post.id});
   };
   
   const on_press_emoji = function(emoji) {
@@ -126,7 +125,7 @@ const UserPost = function({id, navigation, number_columns, screen, on_press_comm
         <View style={{flexDirection: "row", alignItems: "center", marginVertical: 4}}>
           <TouchableOpacity onPress={on_press_like_inner} style={{alignItems: "center", marginLeft: 10}} activeOpacity={0.8}>
             <Animated.View style={{ transform: [{ scale: anim.current }] }}>
-              <Text><MaterialCommunityIcons name={((is_liking || snap_user.current_post.is_liked) && !is_unliking) ? "heart" : "heart-outline"} size={32} style={((is_liking || snap_user.current_post.is_liked) && !is_unliking) ? {color: "red"} : {color: colors.outline}}/></Text>
+              <Text><MaterialCommunityIcons name={snap_user.current_post.is_liked ? "heart" : "heart-outline"} size={32} style={snap_user.current_post.is_liked ? {color: "red"} : {color: colors.outline}}/></Text>
             </Animated.View>
           </TouchableOpacity>
           {like_count > 0 && (
@@ -179,7 +178,7 @@ const UserPost = function({id, navigation, number_columns, screen, on_press_comm
               <View>
                 <TouchableOpacity onPress={on_press_like_inner} style={{alignItems: "center"}} activeOpacity={0.8}>
                   <Animated.View style={{ transform: [{ scale: anim.current }] }}>
-                    <MaterialCommunityIcons name={((is_liking || snap_user.current_post.is_liked) && !is_unliking) ? "heart" : "heart-outline"} size={32} style={[styles.image_text, ((is_liking || snap_user.current_post.is_liked) && !is_unliking) ? {color: "red"} : null]}/>
+                    <MaterialCommunityIcons name={snap_user.current_post.is_liked ? "heart" : "heart-outline"} size={32} style={[styles.image_text, snap_user.current_post.is_liked ? {color: "red"} : null]}/>
                   </Animated.View>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={on_press_likes_inner} style={{alignItems: "center", marginTop: 0}} activeOpacity={0.8}>
@@ -219,7 +218,7 @@ const UserPost = function({id, navigation, number_columns, screen, on_press_comm
               <View style={{right: -4}}>
                 <TouchableOpacity onPress={on_press_like_inner} style={{alignItems: "center"}} activeOpacity={0.8}>
                   <Animated.View style={{ transform: [{ scale: anim.current }] }}>
-                    <MaterialCommunityIcons name={((is_liking || snap_user.current_post.is_liked) && !is_unliking) ? "heart" : "heart-outline"} size={20} style={[styles.image_text, ((is_liking || snap_user.current_post.is_liked) && !is_unliking) ? {color: "red"} : null]}/>
+                    <MaterialCommunityIcons name={snap_user.current_post.is_liked ? "heart" : "heart-outline"} size={20} style={[styles.image_text, snap_user.current_post.is_liked ? {color: "red"} : null]}/>
                   </Animated.View>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={on_press_likes_inner} style={{alignItems: "center", paddingLeft: 4, paddingRight: 4}} activeOpacity={0.8}>

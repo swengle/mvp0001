@@ -15,10 +15,9 @@ import { proxy } from "valtio";
 
 $.contacts_rows_by_id = proxy({});
 
-
 const Row = function({ row, navigation, user_count }) {
   if (row.id === "is_users_header") {
-    return <Fragment><Text style={{margin: 10, marginTop: 20}} variant="titleSmall">YOUR CONTACTS ON SWENGLE</Text>{user_count === 0 && (<Text>None of your contacts ws found on swengle.</Text>)}</Fragment>;
+    return <Fragment><Text style={{margin: 10, marginTop: 20}} variant="titleSmall">YOUR CONTACTS ON SWENGLE</Text>{user_count === 0 && (<HelperText>None of your contacts found on swengle!</HelperText>)}</Fragment>;
   }
   else if (row.id === "is_contacts_header") {
     return <Fragment><Text style={{margin: 10, marginTop: (user_count > 0) ? 50 : 20}} variant="titleSmall">INVITE CONTACTS</Text></Fragment>;
