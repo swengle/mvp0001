@@ -85,6 +85,7 @@ $.display_error = function(toast, e) {
 $.auth = proxy({ cca2: "US" });
 $.app = proxy({});
 $.editor = proxy({});
+$.session = proxy({});
 
 $.get_snap_current_user = function() {
   if ($.session && $.session.uid) {

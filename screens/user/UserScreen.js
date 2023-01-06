@@ -306,7 +306,7 @@ const UserScreen= function({navigation, route}) {
   const on_press_contacts = async function() {
     const { status } = await Contacts.requestPermissionsAsync();
     if (!status) {
-      $.dialog.is_contacts_permission_visible = true;
+      $.show_contacts_permissions_dialog();
       return;
     }
     navigation.push("ContactsStack"); 

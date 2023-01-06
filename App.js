@@ -1,13 +1,13 @@
 import $ from "./setup";
 import _ from "underscore";
-import { useEffect } from "react";
-import { AppState, LogBox, useColorScheme, useWindowDimensions } from 'react-native';
+import { useEffect, useState } from "react";
+import { LogBox, useColorScheme, useWindowDimensions } from 'react-native';
 import Toast, { ToastProvider } from 'react-native-toast-notifications';
 import { NavigationContainer, DarkTheme as NavigationDarkTheme, DefaultTheme as NavigationDefaultTheme } from '@react-navigation/native';
 import { adaptNavigationTheme, Button, Dialog, Paragraph, Provider as PaperProvider, MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 import * as SplashScreen from 'expo-splash-screen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { proxy, subscribe, useSnapshot } from 'valtio';
+import { subscribe, useSnapshot } from 'valtio';
 import AuthStack from "./screens/AuthStack";
 import MainStack from "./screens/MainStack";
 import * as Font from 'expo-font';
@@ -16,7 +16,9 @@ import { StatusBar } from 'expo-status-bar';
 import messaging from '@react-native-firebase/messaging';
 import { Asset } from 'expo-asset';
 import useCachedData from "./hooks/useCachedData";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
+
+SplashScreen.preventAutoHideAsync();
 
 const { LightTheme, DarkTheme } = adaptNavigationTheme({
   light: NavigationDefaultTheme,
@@ -40,20 +42,22 @@ const CombinedDarkTheme = {
   },
 };
 
-const auth = getAuth();
-SplashScreen.preventAutoHideAsync();
 
 export default function App() {
   LogBox.ignoreLogs(["AsyncStorage has been extracted from react-native core and will be removed in a future release. It can now be installed and imported from '@react-native-async-storage/async-storage' instead of 'react-native'. See https://github.com/react-native-async-storage/async-storage",
                       "VirtualizedLists should never be nested inside plain ScrollViews with the same orientation because it can break windowing and other functionality - use another VirtualizedList-backed container instead."]);
-  const { width } = useWindowDimensions();
-  if (!$.session) {
-    $.session = proxy({});
-  }
-  if (!$.dialog) {
-    $.dialog = proxy({});
-  }
+                      
   
+  const [is_camera_permission_visible, set_is_camera_permission_visible] = useState();
+  const [is_photos_permission_visible, set_is_photos_permission_visible] = useState();
+  const [is_contacts_permission_visible, set_is_contacts_permission_visible ] = useState();
+  const [is_prep_ready, set_is_prep_ready] = useState();
+  const [is_auth_ready, set_is_auth_ready] = useState();
+  const [is_splash_hidden, set_is_splash_hidden] = useState();
+  
+
+  const { width } = useWindowDimensions();
+
   $.const = {
     width: width,
     image_sizes: {
@@ -89,34 +93,56 @@ export default function App() {
   
   const snap_app = useSnapshot($.app);
   const snap_session = useSnapshot($.session);
-  const snap_dialog = useSnapshot($.dialog);
   const scheme = useColorScheme();
-  let unsubscribe_app, unsubscribe_auth_state, unsubscribe_session, unsubscribe_messaging, unsubscribe_background_messaging, unsubscribe_app_state, unsubscribe_fs_current_user, unsubscribe_fs_counts;
-  
+  const subscriptions = {};
+
   const turn_off_subscriptions = function() {
-    unsubscribe_auth_state && unsubscribe_auth_state();
-    unsubscribe_app && unsubscribe_app();
-    unsubscribe_session && unsubscribe_session();
-    //unsubscribe_messaging && unsubscribe_messaging();
-    unsubscribe_background_messaging && unsubscribe_background_messaging();
-    unsubscribe_app_state && unsubscribe_app_state.remove();
-    unsubscribe_fs_current_user && unsubscribe_fs_current_user();
-    unsubscribe_fs_counts && unsubscribe_fs_counts();
+    _.each(subscriptions, function(end_subscription) {
+      end_subscription();
+    });
   };
+  
+  useEffect(() => {
+    if (!is_splash_hidden && is_auth_ready && is_prep_ready) {
+      set_is_splash_hidden(true);
+      _.delay(async function() {
+        await SplashScreen.hideAsync();
+      }, 1);
+    }
+  }, [is_prep_ready, is_auth_ready, is_splash_hidden]);
   
   useEffect(() => {
     async function prepare() {
       try {
+        
+        $.show_camera_permissions_dialog = function() {
+          set_is_camera_permission_visible(true);
+        };
+        
+        $.show_photopicker_permissions_dialog = function() {
+          set_is_photos_permission_visible(true);
+        };
+        
+        $.show_contacts_permissions_dialog = function() {
+          set_is_contacts_permission_visible(true);
+        };
+        
         // save any changes to $.app in storage
-        unsubscribe_app = subscribe($.app, function() {
+        // if this fails the user has bigger problems than us
+        subscribe($.app, function() {
           AsyncStorage.setItem("@state", JSON.stringify($.app));
         });
         
-        unsubscribe_auth_state = onAuthStateChanged(auth, async function(u) {
+        const auth = getAuth();
+        onAuthStateChanged(auth, async function(u) {
           if (u) {
             //await signOut(auth);
             try {
-              unsubscribe_fs_current_user = onSnapshot(doc($.db, "users", u.uid), (doc) => {
+              const id_token_result = await auth.currentUser.getIdTokenResult();
+              $.session.stream_token = id_token_result.claims.stream_token;
+              
+              // update the current user when they are updated in any way
+              subscriptions.fs_current_user = onSnapshot(doc($.db, "users", u.uid), (doc) => {
                 const current_user = doc.data();
                 if (current_user.current_post && current_user.current_post.is_owner_liked) {
                   current_user.current_post.is_liked = true;
@@ -124,12 +150,14 @@ export default function App() {
                 useCachedData.cache_set(current_user);
                 $.session.uid = u.uid;
               });
-              
-              unsubscribe_fs_counts = onSnapshot(doc($.db, "users/" + u.uid + "/counts", "emojis"), (doc) => {
-                const counts = doc.data() || {};
-                counts.id = "counts";
-                useCachedData.cache_set(counts);
-              });
+
+              /*
+              const ref_user_counts = doc($.db, "users/" + u.uid + "/counts", "emojis");
+              const user_counts_doc_snap = await getDoc(ref_user_counts);
+              if (user_counts_doc_snap.exists()) {
+                $.session.user_counts = user_counts_doc_snap.data();
+              }
+              */
 
               $.session.global_counts = (await $.cf.get_global_counts()).data;
               
@@ -137,36 +165,19 @@ export default function App() {
             } catch(e) {
               $.logger.error(e);
             }
-          } else {
-            unsubscribe_fs_current_user && unsubscribe_fs_current_user();
-            unsubscribe_fs_counts && unsubscribe_fs_counts();
-            delete $.session.uid;
           }
-          $.session.is_auth_ready = true;
+          set_is_auth_ready(true);
         });
-        
-        unsubscribe_session = subscribe($.session, async function() {
-          if (!$.session.is_splash_hidden && $.session.is_auth_ready && $.session.is_prep_ready) {
-            $.session.is_splash_hidden = true;
-            _.delay(async function() {
-              await SplashScreen.hideAsync();
-            }, 1);
-          }
-        });
-        
-        unsubscribe_messaging = messaging().onMessage(async remoteMessage=>{
+
+      
+        subscriptions.messaging = messaging().onMessage(async remoteMessage=>{
           console.log("unsubscribe_messaging", JSON.stringify(remoteMessage));
         });
         
-        unsubscribe_background_messaging + messaging().setBackgroundMessageHandler(async remoteMessage => {
+        subscriptions.background_messaging + messaging().setBackgroundMessageHandler(async remoteMessage => {
           console.log('unsubscribe_background_messaging', remoteMessage);
         });
-        
-        unsubscribe_app_state = AppState.addEventListener("change", function(next_app_state) {
-          if ($.session.uid && next_app_state === "active") {
-            $.check_notification_permissions();
-          }
-        });
+
 
         await Asset.loadAsync(require('./assets/dark-puzzled-500.png'));
         await Asset.loadAsync(require('./assets/light-puzzled-500.png'));
@@ -186,7 +197,7 @@ export default function App() {
       } catch (e) {
         $.logger.error(e);
       } finally {
-        $.session.is_prep_ready = true;
+        set_is_prep_ready(true);
       }
     }
 
@@ -195,18 +206,18 @@ export default function App() {
     return turn_off_subscriptions;
   }, []);
   
-  if (!$.session.is_prep_ready || !$.session.is_auth_ready) {
+  if (!is_prep_ready || !is_auth_ready) {
     return null;
   }
   
   const on_press_open_settings = function() {
-    $.dialog.is_camera_permission_visible = false;
+    set_is_camera_permission_visible(false);
     $.openAppSettings();
   };
   
   const on_press_cancel = function() {
-    $.dialog.is_camera_permission_visible = false;
-    $.dialog.is_photos_permission_visible = false;
+    set_is_camera_permission_visible(false);
+    set_is_photos_permission_visible(false);
   };
   
   return (
@@ -222,7 +233,7 @@ export default function App() {
         </NavigationContainer>
         <Toast ref={(ref) => global['toast'] = ref} />
         
-        <Dialog visible={snap_dialog.is_camera_permission_visible} dismissable={false}>
+        <Dialog visible={is_camera_permission_visible} dismissable={false}>
             <Dialog.Content>
               <Paragraph>Please enable permission to use the camera.</Paragraph>
             </Dialog.Content>
@@ -232,7 +243,7 @@ export default function App() {
             </Dialog.Actions>
         </Dialog>
         
-        <Dialog visible={snap_dialog.is_photos_permission_visible} dismissable={false}>
+        <Dialog visible={is_photos_permission_visible} dismissable={false}>
             <Dialog.Content>
               <Paragraph>Please enable permission to access photos.</Paragraph>
             </Dialog.Content>
@@ -242,7 +253,7 @@ export default function App() {
             </Dialog.Actions>
         </Dialog>
         
-        <Dialog visible={snap_dialog.is_contacts_permission_visible} dismissable={false}>
+        <Dialog visible={is_contacts_permission_visible} dismissable={false}>
             <Dialog.Content>
               <Paragraph>Please enable permission to access contacts.</Paragraph>
             </Dialog.Content>

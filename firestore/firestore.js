@@ -521,7 +521,6 @@ const firestore = {
     const user_doc_ref = doc(db, "users", $.session.uid);
     const update = { is_account_public: params.is_account_public };
     await updateDoc(user_doc_ref, _.extend({ rev: increment(1) }, update));
-    $.get_current_user().is_account_public = params.is_account_public;
   },
   update_current_user: async function(params) {
     const user_doc_ref = doc(db, "users", $.session.uid);
@@ -572,7 +571,6 @@ const firestore = {
         transaction.update(user_doc_ref, _.extend({ rev: increment(1) }, user_updates));
       }
     });
-    _.extend($.get_current_user(), user_updates);
   },
   update_relationship: async function(params) {
     const current_user_ref = doc(db, "users", $.session.uid);
@@ -651,23 +649,19 @@ const firestore = {
           const current_user_update = { updated_at: Timestamp.now() };
           if (user.is_account_public) {
             current_user_update.follow_count = increment(1);
-            _.isNumber(current_user.follow_count) ? ++current_user.follow_count : current_user.follow_count = 0;
           }
           else {
             current_user_update.request_count = increment(1);
-            _.isNumber(current_user.request_count) ? ++current_user.request_count : current_user.request_count = 0;
           }
 
           await transaction.update(current_user_ref, _.extend({rev: increment(1)}, current_user_update));
           const user_update = { updated_at: Timestamp.now() };
           if (user.is_account_public) {
             user_update.follow_by_count = increment(1);
-            _.isNumber(user.follow_by_count) ? ++user.follow_by_count : user.follow_by_count = 0;
           }
           else {
             user_update.request_by_count = increment(1);
             user_update.unread_request_by_count = increment(1);
-            _.isNumber(user.request_by_count) ? ++user.request_by_count : user.request_by_count = 0;
           }
           await transaction.update(user_ref, _.extend({rev: increment(1)}, user_update));
         }
@@ -697,20 +691,14 @@ const firestore = {
           if (relationship.status === "follow") {
             current_user_update.follow_count = increment(-1);
             user_update.follow_by_count = increment(-1);
-            _.isNumber(current_user.follow_count) ? current_user.follow_count-- : current_user.follow_count = 0;
-            _.isNumber(user.follow_by_count) ? user.follow_by_count-- : user.follow_by_count = 0;
           }
           else if (relationship.status === "request") {
             current_user_update.request_count = increment(-1);
             user_update.request_by_count = increment(-1);
-            _.isNumber(current_user.request_count) ? current_user.request_count-- : current_user.request_count = 0;
-            _.isNumber(user.request_by_count) ? user.request_by_count-- : user.request_by_count = 0;
           }
           else if (relationship.status === "ignore") {
             current_user_update.ignore_by_count = increment(-1);
             user_update.ignore_count = increment(-1);
-            _.isNumber(current_user.ignore_by_count) ? current_user.ignore_by_count-- : current_user.ignore_by_count = 0;
-            _.isNumber(user.ignore_count) ? user.ignore_count-- : user.ignore_count = 0;
           }
           await transaction.update(current_user_ref, _.extend({rev: increment(1)}, current_user_update));
           await transaction.update(user_ref, _.extend({rev: increment(1)}, user_update));
@@ -760,11 +748,9 @@ const firestore = {
           if (relationship) {
             if (relationship.status === "follow") {
               current_user_update.follow_count = increment(-1);
-              _.isNumber(current_user.follow_count) ? current_user.follow_count-- : current_user.follow_count = 0;
             }
             else if (relationship.status === "request") {
               current_user_update.request_count = increment(-1);
-              _.isNumber(current_user.follow_count) ? current_user.request_count-- : current_user.request_count = 0;
             }
           }
           await transaction.update(current_user_ref, _.extend({rev: increment(0)}, current_user_update));
@@ -772,11 +758,9 @@ const firestore = {
           if (relationship) {
             if (relationship.status === "follow") {
               user_update.follow_by_count = increment(-1);
-              _.isNumber(user.follow_by_count) ? user.follow_by_count-- : user.follow_by_count = 0;
             }
             else if (relationship.status === "request") {
               user_update.request_by_count = increment(-1);
-              _.isNumber(user.request_by_count) ? user.request_by_count-- : user.request_by_count = 0;
             }
           }
           user_update.block_by_count = increment(1);

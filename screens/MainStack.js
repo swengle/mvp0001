@@ -117,7 +117,7 @@ const StackTabs = function({ navigation }) {
       if (permissionCamera.canAskAgain) {
         requestPermissionCamera();
       } else {
-        $.dialog.is_camera_permission_visible = true;
+        $.show_camera_permissions_dialog();
       }
       return;
     }
