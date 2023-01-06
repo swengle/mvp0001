@@ -1,7 +1,7 @@
 "use strict";
 import $ from "../../setup";
 import _ from "underscore";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { KeyboardAvoidingView, Platform, View } from 'react-native';
 import { Appbar, Avatar, Divider, Searchbar, SegmentedButtons, Text, useTheme } from "react-native-paper";
 import TouchableOpacity  from "../../components/TouchableOpacity";
@@ -40,8 +40,7 @@ const SearchResult = function({navigation, row}) {
 
 
 const SearchScreen = function({ navigation }) {
-  const ref_explore_searchbar = useRef();
-  const { search_data, search_users, search_emojis, search_clear } = useSearch();
+  const { search_data, search_users, search_emojis } = useSearch();
   const [searchbar_text, set_searchbar_text] = useState("");
   const [segment_value, set_segment_value] = useState("users");
 
@@ -86,7 +85,7 @@ const SearchScreen = function({ navigation }) {
       </Appbar.Header>
       <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
         <View style={{flexDirection: "row", alignItems: "center"}}>
-          <View style={{flex:1}}><Searchbar ref={ref_explore_searchbar} placeholder="Search" onChangeText={local_on_searchbar_change_text} value={searchbar_text} autoCapitalize={false} autoCorrect={false} autoComplete="none" autoFocus={true}/></View>
+          <View style={{flex:1}}><Searchbar placeholder="Search" onChangeText={local_on_searchbar_change_text} value={searchbar_text} autoCapitalize={false} autoCorrect={false} autoComplete="none" autoFocus={true}/></View>
         </View>
           <SegmentedButtons
             style={{marginVertical: 8, alignSelf: "center"}}

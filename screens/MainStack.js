@@ -1,11 +1,12 @@
 "use strict";
 
 import $ from "../setup.js";
+import _ from "underscore";
 import { Fragment } from "react";
 import { createStackNavigator, TransitionPresets } from '@react-navigation/stack';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useTheme } from 'react-native-paper';
+import { Badge, useTheme } from 'react-native-paper';
 import { Camera } from 'expo-camera';
 import { Image, Text } from "react-native";
 import TouchableOpacity  from "../components/TouchableOpacity";
@@ -19,7 +20,6 @@ import ProfileScreen from "./settings/ProfileScreen";
 import NotificationsScreen from "./settings/NotificationsScreen";
 import ContactsScreen from "./contacts/ContactsScreen";
 import SearchScreen from "./search/SearchScreen";
-
 import EditorStack from "./EditorStack";
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -157,7 +157,10 @@ const StackTabs = function({ navigation }) {
       }}
       />
       <TabNavigator.Screen name="AlertsStack" component={AlertsStack} options={{headerShown: false, tabBarLabel: "Alerts", tabBarIcon: ({ focused, color }) => (
-        <MaterialCommunityIcons name={focused ? "bell" : "bell-outline"} color={focused ? colors.primary : colors.outline} size={26} />
+        <Fragment>
+          <MaterialCommunityIcons name={focused ? "bell" : "bell-outline"} color={focused ? colors.primary : colors.outline} size={26} />
+          {(_.isNumber(snap_current_user.unread_request_by_count) && snap_current_user.unread_request_by_count > 0) && <Badge style={{position: "absolute", right: 12, top: -8}}>{snap_current_user.unread_request_by_count}</Badge>}
+        </Fragment>
       )}}/>
       <TabNavigator.Screen name="UserStack" component={UserStack} options={{headerShown: false, tabBarLabel: "Profile", tabBarIcon: ({ focused, color }) => (
         <MaterialCommunityIcons name={focused ? "account" : "account-outline"} color={focused ? colors.primary : colors.outline} size={26} />

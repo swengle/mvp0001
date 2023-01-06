@@ -2,8 +2,8 @@ import _ from "underscore";
 import { useState, useEffect } from 'react';
 import { proxy, useSnapshot } from "valtio";
 
-const cached_datas_by_id = proxy({});
-const entities = proxy({});
+let cached_datas_by_id = proxy({});
+let entities = proxy({});
 
 const useCachedData = function(options) {
   options = options || {};
@@ -103,9 +103,11 @@ useCachedData.cache_unset = function(id) {
   if (!entities[id]) {
     return;
   }
-  _.each(cached_datas_by_id, function(cache_data) {
+  _.each(cached_datas_by_id, function(cache_data, is_global) {
     if (cache_data.entity_ids[id]) {
-      delete cache_data.entity_ids[id];
+      if (is_global) {
+        delete cache_data.entity_ids[id]; 
+      }
       cache_data.data = _.reject(cache_data.data, function(d) {
         return d === id;
       });
@@ -146,6 +148,12 @@ useCachedData.cache_get = function(id) {
 
 useCachedData.cache_get_snap = function(id) {
   return (useSnapshot(entities))[id];
+};
+
+
+useCachedData.flush = function() {
+  cached_datas_by_id = proxy({});
+  entities = proxy({});
 };
 
 

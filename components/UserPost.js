@@ -100,6 +100,10 @@ const UserPost = function({id, navigation, number_columns, screen, on_press_comm
     navigation.push("UserPostListScreen", {screen: "EmojiScreen", emoji: emoji});
   };
   
+  const on_press_location = function() {
+    navigation.push("UserPostListScreen", {screen: "LocationScreen", id: user.current_post.location.id, title: user.current_post.location.name});
+  };
+  
   const like_count = _.isNumber(snap_user.current_post.like_count) ? snap_user.current_post.like_count : 0;
   const comment_count = _.isNumber(snap_user.current_post.comment_count) ? snap_user.current_post.comment_count : 0;
 
@@ -107,13 +111,17 @@ const UserPost = function({id, navigation, number_columns, screen, on_press_comm
     return (
       <Fragment>
         <View style={{flexDirection: "row", padding: 10, paddingTop: 0}}>
-          <View style={{flex:1}}/>
+          <View style={{flex:1}}>
+            {snap_user.current_post.location && <TouchableOpacity style={{flexDirection: "row"}} onPress={on_press_location}><MaterialCommunityIcons name={"map-marker"} size={16} color={colors.text}/><Text numberOfLines={1} style={{fontSize: 12}}>{snap_user.current_post.location.name}</Text></TouchableOpacity>}
+          </View>
           <LiveTimeAgo style={{fontSize: 12}} date={snap_user.current_post.created_at.toDate()}/>
         </View>
 
-        <Text style={{margin: 10, marginTop: 0}}>
-          This is some text to go with this thing! This is some text to go with this thing! This is some text to go
-        </Text>
+        {snap_user.current_post.caption && (
+          <Text style={{margin: 10, marginTop: 0}}>
+            {snap_user.current_post.caption}
+          </Text>
+        )}
         <View>
           <TapDetector on_double_tap={on_press_like_inner}>
             <View>
@@ -157,6 +165,7 @@ const UserPost = function({id, navigation, number_columns, screen, on_press_comm
           <Fragment>
             <View style={{marginLeft: 10, marginTop: 10}}>
               <LiveTimeAgo style={[styles.image_text_1, styles.image_text]} date={snap_user.current_post.created_at.toDate()}/>
+              {snap_user.current_post.location && <TouchableOpacity onPress={on_press_location}><Text numberOfLines={1} style={[{width: "65%"}, styles.image_text_place_1, styles.image_text]}>{snap_user.current_post.location.name}</Text></TouchableOpacity>}
             </View>
             
             <TapDetector on_single_tap={on_press_post} on_double_tap={on_press_like_inner}><View style={{flex:1}}/></TapDetector>
@@ -173,7 +182,7 @@ const UserPost = function({id, navigation, number_columns, screen, on_press_comm
                     </View>
                   </TouchableOpacity>
                 )}
-                {true && <Text numberOfLines={3} style={[styles.image_text_1, styles.image_text, {width: "100%", marginTop: 4}]}>This is some text to go with this thing! This is some text to go with this thing! This is some text to go</Text>}
+                {snap_user.current_post.caption && <Text numberOfLines={3} style={[styles.image_text_1, styles.image_text, {width: "100%", marginTop: 4}]}>{snap_user.current_post.caption}</Text>}
               </View>
               <View>
                 <TouchableOpacity onPress={on_press_like_inner} style={{alignItems: "center"}} activeOpacity={0.8}>
@@ -199,6 +208,7 @@ const UserPost = function({id, navigation, number_columns, screen, on_press_comm
           <Fragment>
             <View style={{marginLeft: 10, marginTop: 10}}>
               <LiveTimeAgo style={[styles.image_text_2, styles.image_text]} date={snap_user.current_post.created_at.toDate()}/>
+              {snap_user.current_post.location && <TouchableOpacity onPress={on_press_location}><Text style={[{width: "65%"}, styles.image_text_2, styles.image_text]} numberOfLines={1}>{snap_user.current_post.location.name}</Text></TouchableOpacity>}
             </View>
             <TapDetector on_single_tap={on_press_post} on_double_tap={on_press_like_inner}><View style={{flex:1}}/></TapDetector>
             <View style={{flexDirection: "row", margin: 8}}>
@@ -213,7 +223,7 @@ const UserPost = function({id, navigation, number_columns, screen, on_press_comm
                     </View>
                   </TouchableOpacity>
                 )}
-                {true && <Text numberOfLines={1} style={[styles.image_text_2, styles.image_text, {width: "100%", marginTop: 4}]}>This is some text to go with this thing! This is some text to go with this thing! This is some text to go</Text>}
+                {snap_user.current_post.caption && <Text numberOfLines={1} style={[styles.image_text_2, styles.image_text, {width: "100%", marginTop: 4}]}>{snap_user.current_post.caption}</Text>}
               </View>
               <View style={{right: -4}}>
                 <TouchableOpacity onPress={on_press_like_inner} style={{alignItems: "center"}} activeOpacity={0.8}>
@@ -237,8 +247,9 @@ const UserPost = function({id, navigation, number_columns, screen, on_press_comm
         )}
         {(is_image_loaded) && number_columns === 3 && (
           <Fragment>
-            <View style={{marginLeft: 6, marginTop: 6}}>
+            <View style={{marginLeft: 6, marginTop: 6, flexDirection: "row"}}>
               <LiveTimeAgo style={[styles.image_text_3, styles.image_text]} date={snap_user.current_post.created_at.toDate()}/>
+              {snap_user.current_post.location && <TouchableOpacity onPress={on_press_location}><MaterialCommunityIcons name={"map-marker"} size={16} color={colors.text}/></TouchableOpacity>}
             </View>
             <TapDetector on_single_tap={on_press_post} on_double_tap={on_press_like_inner}><View style={{flex:1}}/></TapDetector>
             {(screen !== "HistoryScreen") && (
@@ -246,14 +257,15 @@ const UserPost = function({id, navigation, number_columns, screen, on_press_comm
                 <Text style={[styles.image_text_3_username, styles.image_text]}>{snap_user.username}</Text>
               </TouchableOpacity>
             )}
-            {true && <View style={{padding: 4}}><Text numberOfLines={1} style={[styles.image_text_3, styles.image_text, {width: "100%"}]}>This is some text to go with this thing! This is some text to go with this thing! This is some text to go</Text></View>}
+            {snap_user.current_post.caption && <View style={{padding: 4}}><Text numberOfLines={1} style={[styles.image_text_3, styles.image_text, {width: "100%"}]}>{snap_user.current_post.caption}</Text></View>}
             {is_image_loaded && _.isString(snap_user.current_post.emoji_char) && <EmojiOverlay  emoji_char={snap_user.current_post.emoji_char} scaling_factor={number_columns}  on_press={on_press_emoji}/>}
           </Fragment>
         )}
         {(is_image_loaded) && number_columns === 4 && (
           <Fragment>
-            <View style={{marginLeft: 5, marginTop: 5}}>
+            <View style={{marginLeft: 5, marginTop: 5, flexDirection: "row"}}>
               <LiveTimeAgo style={[styles.image_text_4, styles.image_text]} date={snap_user.current_post.created_at.toDate()}/>
+              {snap_user.current_post.location && <TouchableOpacity onPress={on_press_location}><MaterialCommunityIcons name={"map-marker"} size={16} color={colors.text}/></TouchableOpacity>}
             </View>
              <TapDetector on_single_tap={on_press_post} on_double_tap={on_press_like_inner}><View style={{flex:1}}/></TapDetector>
             {(screen !== "HistoryScreen") && (
@@ -314,6 +326,9 @@ const styles = StyleSheet.create({
   image_text_actions_2: {
     fontSize: 11,
     fontWeight: "500"
+  },
+  image_text_place_1: {
+    fontSize: 14
   }
 });
 

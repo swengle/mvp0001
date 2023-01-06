@@ -3,6 +3,7 @@ import { createStackNavigator, TransitionPresets } from '@react-navigation/stack
 import CameraScreen from "./editor/CameraScreen";
 import DetailsScreen from "./editor/DetailsScreen";
 import SelectEmojiScreen from "./editor/SelectEmojiScreen";
+import LocationEditScreen from "./location/LocationEditScreen";
 
 const createNavigator = true ? createStackNavigator : createNativeStackNavigator;
 
@@ -14,6 +15,7 @@ const EditorStack = function() {
       <Stack.Screen name="CameraScreen" component={CameraScreen}/>
       <Stack.Screen name="DetailsScreen" component={DetailsScreen}/>
       <Stack.Screen name="SelectEmojiScreen" component={SelectEmojiScreen}/>
+      <Stack.Screen name="LocationEditScreen" component={LocationEditScreen}/>
     </Stack.Navigator>
   );
 };

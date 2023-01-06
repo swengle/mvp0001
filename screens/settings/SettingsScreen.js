@@ -7,6 +7,7 @@ import { getAuth, signOut } from "firebase/auth";
 import * as WebBrowser from 'expo-web-browser';
 import { useSnapshot } from "valtio";
 import firestore from "../../firestore/firestore";
+import useCachedData from "../../hooks/useCachedData";
 
 const SettingsScreen = function({navigation}) {
   const current_user = $.get_current_user();
@@ -20,6 +21,7 @@ const SettingsScreen = function({navigation}) {
   const on_press_logout = async function() {
     const auth = getAuth();
     await signOut(auth);
+    useCachedData.flush();
   };
   
   const on_press_profile = function() {

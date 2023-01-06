@@ -23,6 +23,9 @@ const UserPostListScreen = function({navigation, route}) {
   } else if (screen === "HistoryScreen") {
     id = screen;
     title = "History";
+  } else if (screen === "LocationScreen") {
+    id = route.params.id;
+    title = route.params.title;
   } else {
     title = screen;
   }

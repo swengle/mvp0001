@@ -32,7 +32,7 @@ const get_relationship_button_text = function(status) {
   return status;
 };
 
-const User = function({id, row_id, navigation}) {
+const User = function({id, row_id, navigation, screen, on_request_approve, on_request_delete}) {
   const row = $.contacts_rows_by_id[row_id];
   
   const { colors } = useTheme();
@@ -74,20 +74,51 @@ const User = function({id, row_id, navigation}) {
     navigation.push("UserScreen", {id: id});
   };
   
+  const on_press_confirm = async function() {
+    try {
+      await firestore.update_relationship({
+        id: user.id,
+        action: "approve"
+      });
+      on_request_approve(user.id);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+  
+  const on_press_delete = async function() {
+    try {
+      await firestore.update_relationship({
+        id: user.id,
+        action: "deny"
+      });
+      on_request_delete(user.id);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   return (
-    <View style={{flexDirection: "row", alignItems: "center", padding: 10}}>
-      <TouchableOpacity onPress={on_press_user} style={{flex: 7, flexDirection: "row", alignItems: "center"}}>
-        <Avatar.Image size={64} source={{uri: snap_user.profile_image_url}} style={{marginRight: 10}}/>
-        <View>
-          <Text variant="titleMedium">{snap_user.username}</Text>
-          {snap_user.name && <Text variant="bodySmall">{snap_user.name}</Text>}
-          {row && row.contact_name && <Text variant="labelMedium" style={{color: colors.outline}}><MaterialCommunityIcons name="account-box-outline" size={14} />{row.contact_name}</Text>}
-        </View>
-      </TouchableOpacity>
-      {(id !== $.session.uid) && (
-        <View style={{flex: 3}}>
-          <Button mode="contained" compact={true} onPress={on_press_relationship}>{busy_button_text ? busy_button_text : get_relationship_button_text(snap_user.outgoing_status)}</Button>
+    <View>
+      <View style={{flexDirection: "row", alignItems: "center", padding: 10}}>
+        <TouchableOpacity onPress={on_press_user} style={{flex: 7, flexDirection: "row", alignItems: "center"}}>
+          <Avatar.Image size={64} source={{uri: snap_user.profile_image_url}} style={{marginRight: 10}}/>
+          <View>
+            <Text variant="titleMedium">{snap_user.username}</Text>
+            {snap_user.name && <Text variant="bodySmall">{snap_user.name}</Text>}
+            {row && row.contact_name && <Text variant="labelMedium" style={{color: colors.outline}}><MaterialCommunityIcons name="account-box-outline" size={14} />{row.contact_name}</Text>}
+          </View>
+        </TouchableOpacity>
+        {(screen !== "RequestByScreen" && id !== $.session.uid) && (
+          <View style={{flex: 3}}>
+            <Button mode="contained" compact={true} onPress={on_press_relationship}>{busy_button_text ? busy_button_text : get_relationship_button_text(snap_user.outgoing_status)}</Button>
+          </View>
+        )}
+      </View>
+      {screen === "RequestByScreen" && (
+        <View style={{flexDirection: "row", alignItems: "center", justifyContent: "flex-end", marginRight: 10, top: -30}}>
+          <Button mode="contained" compact={true} onPress={on_press_confirm} style={{marginRight: 10}}>Confirm</Button>
+          <Button mode="outlined" compact={true} onPress={on_press_delete}>Delete</Button>
         </View>
       )}
     </View>

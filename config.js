@@ -18,6 +18,13 @@ const config = {
     api_key: '431814526122448',
     secret: '7kavMkYkmeJ_ccNz34gvxMfeDlk',
     cloud_name: 'dedktvy6d'
+  },
+  geoapify: {
+   api_key: "47f523a46b944b47862e39509a7833a9"
+  },
+  geocode: {
+    api_key: "ge-8956b0383848d0f9",
+    api_endpoint: "https://api.geocode.earth"
   }
 
 };

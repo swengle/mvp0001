@@ -72,11 +72,8 @@ const UserPostList = function({ id, screen, navigation, emoji, number_columns, e
       query_args = [collection($.db, "users/" + $.session.uid + "/timeline"), orderBy("created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
     } else if (screen === "EmojiScreen") {
       query_args = [collection($.db, "users"), where("current_post_emoji_char", "==", emoji.char), where("is_account_public", "==", true), orderBy("current_post_created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
-      if (emoji_screen_state.segment_value === "you") {
-        query_args = [collection($.db, "users/" + $.session.uid + "/posts"), where("emoji_char", "==", emoji.char), orderBy("created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
-      } else {
-        query_args = [collection($.db, "users"), where("current_post_emoji_char", "==", emoji.char), where("is_account_public", "==", true), orderBy("current_post_created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
-      }
+    } else if (screen === "LocationScreen") {
+      query_args = [collection($.db, "users"), where("current_post_location_id", "==", id), where("is_account_public", "==", true), orderBy("current_post_created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
     }
     
     if (cache_data.cursor ) {
@@ -137,7 +134,7 @@ const UserPostList = function({ id, screen, navigation, emoji, number_columns, e
             if (_.size(added_user_ids)) {
               const items = await firestore.fetch_users(added_user_ids);
               _.each(items, function(item) {
-                cache_unset(item.id); 
+                cache_unset(item); 
                 cache_set(item);
               });
               cache_sync(0);
@@ -227,7 +224,7 @@ const UserPostList = function({ id, screen, navigation, emoji, number_columns, e
   };
 
   const render_user_post = function(row) {
-    return (screen === "HistoryScreen" || (screen === "EmojiScreen" && emoji_screen_state.segment_value === "you")) ?  <Post navigation={navigation} id={row.item} number_columns={number_columns} screen={screen}/> : <UserPost navigation={navigation} id={row.item} number_columns={number_columns} screen={screen}/> ;
+    return (screen === "HistoryScreen") ?  <Post navigation={navigation} id={row.item} number_columns={number_columns} screen={screen}/> : <UserPost navigation={navigation} id={row.item} number_columns={number_columns} screen={screen}/> ;
   };
 
   const handle_scroll = Animated.event(
@@ -248,10 +245,12 @@ const UserPostList = function({ id, screen, navigation, emoji, number_columns, e
   let empty_text = "No users found!";
   if (screen === "HomeScreen") {
     empty_text = "Your friends updates will appear live here. Make sure to add friends to see what they are feeling!";
+  } else if (screen === "LocationScreen") {
+    empty_text = "Nobody is feeling anything here it seems!";
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
+    <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : undefined} style={{flex: 1}}>
       <FlashList
         ref={ref_list}
         scrollEventThrottle={16}
@@ -269,7 +268,6 @@ const UserPostList = function({ id, screen, navigation, emoji, number_columns, e
         ListFooterComponent = <ListFooter is_error={cache_snap_data.is_load_more_error} is_loading_more={cache_snap_data.is_loading_more} on_press_retry={on_press_retry}/>
         ListEmptyComponent = <ListEmpty text={empty_text} is_refreshing={cache_data.is_refreshing}/>
         refreshControl = {
-          (screen === "EmojiScreen") ? undefined :
           <RefreshControl
             refreshing={cache_snap_data.is_refreshing}
             onRefresh={refresh}

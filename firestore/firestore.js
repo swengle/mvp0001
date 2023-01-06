@@ -152,6 +152,15 @@ const firestore = {
       image_urls: { "1080": { url: url, width: params.image.width, height: params.image.height } },
       rev: 0
     };
+    
+    if (params.caption) {
+      new_post.caption = params.caption;
+    }
+    
+    if (params.location) {
+      new_post.location = params.location;
+      new_post.location_id = new_post.location.id;
+    }
 
     const current_user_ref = doc(db, "users", current_user.id);
     const current_user_counts_ref = doc(db, "users/" + current_user.id + "/counts/emojis");
@@ -170,6 +179,7 @@ const firestore = {
         current_post_emoji_char: new_post.emoji_char,
         current_post_emoji_group: new_post.emoji_group,
         current_post_created_at: new_post.created_at,
+        current_post_location_id: new_post.location_id || deleteField(),
         rev: increment(1)
       });
 
@@ -434,7 +444,7 @@ const firestore = {
         }
       }
     });
-    useCachedData.cache_unset(id);
+    useCachedData.cache_unset(id, true);
   },
   fetch_comment_dependencies: async function(comments, options) {
     if (_.size(comments) === 0) {
@@ -501,6 +511,11 @@ const firestore = {
     const username_ref = doc(db, "usernames", params.username);
     const username_doc_snap = await getDoc(username_ref);
     return !username_doc_snap.exists();
+  },
+  clear_unread_request_by_count: async function() {
+    const user_doc_ref = doc(db, "users", $.session.uid);
+    const update = { unread_request_by_count: 0 };
+    await updateDoc(user_doc_ref, _.extend({ rev: increment(1) }, update));
   },
   update_current_user_account_privacy: async function(params) {
     const user_doc_ref = doc(db, "users", $.session.uid);
@@ -586,21 +601,18 @@ const firestore = {
             });
             const current_user_update = { updated_at: Timestamp.now() };
             current_user_update.request_by_count = increment(-1);
-            _.isNumber(current_user.request_by_count) ? current_user.request_by_count-- : current_user.request_by_count = 0;
+            
             const user_update = { updated_at: Timestamp.now() };
             user_update.request_count = increment(-1);
-            _.isNumber(user_update.request_count) ? current_user.request_count-- : current_user.request_by_count = 0;
             if (params.action === "approve") {
               current_user_update.follow_by_count = increment(1);
               user_update.follow_count = increment(1);
-              _.isNumber(current_user_update.follow_by_count) ? ++current_user.follow_by_count : current_user.follow_by_count = 1;
-              _.isNumber(user_update.follow_count) ? ++user.follow_count : current_user.follow_count = 1;
             }
             await transaction.update(current_user_ref, _.extend({rev: increment(1)}, current_user_update));
             await transaction.update(user_ref, _.extend({rev: increment(1)}, user_update));
           }
         }
-        const relationship_doc_snap = getDoc(relationship_doc_ref);
+        const relationship_doc_snap = await getDoc(relationship_doc_ref);
         user.outgoing_status = relationship_doc_snap.exists() ? relationship_doc_snap.data().status : "none";
         return { outgoing_status: user.outgoing_status };
       }
@@ -654,6 +666,7 @@ const firestore = {
           }
           else {
             user_update.request_by_count = increment(1);
+            user_update.unread_request_by_count = increment(1);
             _.isNumber(user.request_by_count) ? ++user.request_by_count : user.request_by_count = 0;
           }
           await transaction.update(user_ref, _.extend({rev: increment(1)}, user_update));

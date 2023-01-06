@@ -447,7 +447,6 @@ const UserScreen= function({navigation, route}) {
           keyExtractor = { item => item }
           ListHeaderComponent = <Header id={id} navigation={navigation} on_press_comment={on_press_comment} on_press_comments={on_press_comments} ref_list={ref_list} is_error={null} on_press_retry={on_press_retry}/>
           ListFooterComponent = <ListFooter is_error={cache_snap_data.is_load_more_error} is_loading_more={cache_snap_data.is_loading_more} on_press_retry={on_press_retry}/>
-          horizontal={false}
           onEndReached={fetch_more}
           removeClippedSubviews={true}
         />

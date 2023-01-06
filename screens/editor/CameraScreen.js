@@ -1,7 +1,8 @@
+/* global fetch */
 "use strict";
 import $ from "../../setup.js";
 import _ from "underscore";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Image, View, useWindowDimensions } from 'react-native';
 import TouchableOpacity  from "../../components/TouchableOpacity";
 import { Camera, CameraType, FlashMode } from 'expo-camera';
@@ -12,6 +13,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useToast } from "react-native-toast-notifications";
 import Uploader from "../../components/Uploader";
+import * as Location from 'expo-location';
 
 const CameraScreen = function({ navigation, route }) {
   const toast = useToast();
@@ -26,6 +28,32 @@ const CameraScreen = function({ navigation, route }) {
   const [camera_type, set_camera_type] = useState(CameraType.back);
   const [flash_mode, setflash_mode] = useState(FlashMode.off);
   const [is_taking_pic, set_is_taking_pic] = useState(false);
+  
+  
+  const maybe_cache_coarse_location_data = async function() {
+    if ($.session.coarse_location_data) {
+      return;
+    }
+    const { status } = await Location.getForegroundPermissionsAsync();
+    
+    if (status !== 'granted') {
+      return;
+    }
+
+    $.session.location = await Location.getCurrentPositionAsync({});
+    const cities_url = "https://api.geoapify.com/v1/geocode/reverse?format=json&type=postcode&limit=16&lat=" + $.session.location.coords.latitude + "&lon=" + $.session.location.coords.longitude + "&apiKey=" + $.config.geoapify.api_key;
+    try {
+      const response = await fetch(cities_url);
+      const json = await response.json();
+      $.session.coarse_location_data = json.results;
+    } catch (e) {
+      console.error(e);
+    }
+  };
+  
+  useEffect(() => {
+    maybe_cache_coarse_location_data();
+  }, []);
 
   const on_press_close = function() {
     navigation.goBack();

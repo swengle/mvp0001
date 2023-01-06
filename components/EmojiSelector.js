@@ -23,7 +23,7 @@ const EmojiTypeButton = function({group, on_press, is_disabled, is_selected}) {
   
   return (
     <TouchableOpacity onPress={local_on_press} disabled={is_disabled} style={{flex: 1, alignItems: "center"}}> 
-      <MaterialCommunityIcons name={group.icon} color={colors.outline} size={40} style={{opacity: is_disabled ? 0.4 : 1}}/>
+      <MaterialCommunityIcons name={group.icon} color={colors.outline} size={40} style={{opacity: is_disabled ? 0.35 : 1}}/>
     </TouchableOpacity>
   );
 };
