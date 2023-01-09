@@ -1,6 +1,6 @@
 "use strict";
 import _ from "underscore";
-import { collection, collectionGroup, deleteField, doc, documentId, getDoc, getDocs, increment, query, runTransaction, setDoc, updateDoc, where, Timestamp } from "firebase/firestore";
+import { arrayUnion, collection, collectionGroup, deleteField, doc, documentId, getDoc, getDocs, increment, query, runTransaction, setDoc, updateDoc, where, Timestamp } from "firebase/firestore";
 import { getHex } from "pastel-color";
 import useGlobalCache from "../hooks/useGlobalCache";
 
@@ -250,7 +250,6 @@ const firestore = {
     return;
   },
   create_like: async function(parent_user_id, parent_id, parent_kind) {
-    console.log(parent_user_id, parent_id, parent_kind);
     const reaction_ref = doc(db, "users/" + $.session.uid + "/reactions", "like-" + parent_id);
     await runTransaction(db, async (transaction) => {
       const reaction_doc_snap = await transaction.get(reaction_ref);
@@ -290,7 +289,20 @@ const firestore = {
       };
 
       await transaction.set(reaction_ref, like);
-
+      
+      // alerts are best effort, will probably movo to a trigger
+      const activity = {
+        id: $.session.uid + "_" + parent_id,
+        created_at: now,
+        group: "like_" + like.parent_id + "_" + like.updated_at.toDate().toISOString().split("T")[0],
+        verb: "like",
+        target: parent_id,
+        actor: like.uid
+      };
+      const like_alert_ref = doc(db, "users/" + parent_user_id + "/alerts", activity.group);
+      const alerts_updates = { updated_at: now };
+      alerts_updates["activities." + activity.id] = activity;
+      await setDoc(like_alert_ref, alerts_updates, {merge: true});
     });
   },
   delete_like: async function(parent_id) {
@@ -314,6 +326,11 @@ const firestore = {
             await transaction.update(comment_ref, updates);
           }
           await transaction.update(reaction_ref, { updated_at: Timestamp.now(), is_liked: deleteField(), rev: increment(1) });
+          
+          const like_alert_ref = doc(db, "users/" + reaction.parent_user_id + "/alerts", "like_" + reaction.parent_id + "_" + reaction.updated_at.toDate().toISOString().split("T")[0]);
+          const alerts_updates = {};
+          alerts_updates["activities." + reaction.id] = deleteField();
+          await setDoc(like_alert_ref, alerts_updates, {merge: true});
         }
       }
     });
@@ -331,6 +348,7 @@ const firestore = {
       updated_at: now,
       kind: "comment",
       text: text,
+      depth: 0,
       rev: 0
     };
     
@@ -356,6 +374,21 @@ const firestore = {
       }
       const new_reaction_ref = doc(db, "users/" + $.session.uid + "/reactions", new_reaction.id);
       await transaction.set(new_reaction_ref, new_reaction);
+      
+      
+      // alerts are best effort, will probably movo to a trigger
+      const activity = {
+        id: new_reaction.id,
+        created_at: now,
+        group: "comment_" + new_reaction.parent_id + "_" + new_reaction.created_at.toDate().toISOString().split("T")[0],
+        verb: "comment",
+        target: parent_id,
+        actor: new_reaction.uid
+      };
+      const comment_alert_ref = doc(db, "users/" + parent_user_id + "/alerts", activity.group);
+      const alerts_updates = { updated_at: now };
+      alerts_updates["activities." + activity.id] = activity;
+      await setDoc(comment_alert_ref, alerts_updates, {merge: true});
     });
 
     return new_reaction;
@@ -382,10 +415,14 @@ const firestore = {
           }
 
           await transaction.delete(reaction_ref);
+          
+          const comment_alert_ref = doc(db, "users/" + reaction.parent_user_id + "/alerts", reaction.activity.group);
+          const alerts_updates = {};
+          alerts_updates["activities." + reaction.id] = deleteField();
+          await setDoc(comment_alert_ref, alerts_updates, {merge: true});
         }
       }
     });
-    //useCachedData.cache_unset(id, true);
   },
   fetch_comment_dependencies: async function(comments, options) {
     if (_.size(comments) === 0) {

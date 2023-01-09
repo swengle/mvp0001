@@ -1,13 +1,39 @@
 "use strict";
 import $ from "../setup";
 import _ from "underscore";
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { FlatList, View } from 'react-native';
-import { Button, Divider, HelperText, Text, useTheme } from "react-native-paper";
+import { Avatar, Button, Chip, Divider, HelperText, Text, useTheme } from "react-native-paper";
 import approx from "approximate-number";
 import TouchableOpacity  from "../components/TouchableOpacity";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useSnapshot } from "valtio";
+import { useToast } from "react-native-toast-notifications";
+import firestore from "../firestore/firestore";
+import useGlobalCache from "../hooks/useGlobalCache";
+
+const get_relationship_action = function(status) {
+  if (status === "none" || status === "unfollow") {
+      return "follow";
+    } else if (status === "request" || status === "follow" || status === "ignore") {
+      return "unfollow";
+    } else if (status === "block") {
+      return "unblock";
+    }
+};
+
+const get_relationship_button_text = function(status) {
+  if (status === "none" || status === "unfollow") {
+    return "Follow";
+  } else if (status === "follow") {
+    return "Following";
+  } else if (status === "request" || status === "ignore") {
+    return "Requested";
+  } else if (status === "block") {
+    return "Unblock";
+  }
+  return status;
+};
 
 
 const EmojiGroupButton = function({group, on_press, selected_group}) {
@@ -52,9 +78,15 @@ const Emoji = function({emoji, on_press, is_not_selected}) {
   );
 };
 
-const ListHeader = function({ is_error, on_press_retry, screen, is_refreshing, emoji, emoji_screen_state, set_emoji_screen_state, explore_screen_state, set_explore_screen_state, navigation}) {
+const ListHeader = function({ id, is_error, on_press_retry, screen, is_refreshing, emoji, explore_screen_state, set_explore_screen_state, navigation}) {
+  const { cache_get, cache_get_snapshot  } = useGlobalCache();
   const snap_session = useSnapshot($.session);
-
+  const [busy_button_text, set_busy_button_text] = useState();
+  const toast = useToast();
+  
+  const user = screen === "UserScreen" ? cache_get(id) : undefined;
+  const snap_user = screen === "UserScreen" ? cache_get_snapshot(id) : undefined;
+  
   const update_emojis = function() {
     if (!explore_screen_state.is_search_active && explore_screen_state.selected_group) {
       const emojis_with_counts = [];
@@ -99,6 +131,36 @@ const ListHeader = function({ is_error, on_press_retry, screen, is_refreshing, e
     return <Emoji emoji={row.item} on_press={on_press_emoji} is_not_selected={explore_screen_state.selected_emoji && explore_screen_state.selected_emoji !== row.item}/>;
   };
   
+  const on_press_followers = function() {
+    navigation.push("UserListScreen", {id: id, screen: "FollowersScreen"});
+  };
+  
+  const on_press_following = function() {
+    navigation.push("UserListScreen", {id: id, screen: "FollowingScreen"});
+  };
+
+  const on_press_relationship = async function() {
+    try {
+      const action = get_relationship_action(user.outgoing_status);
+      if (action === "follow") {
+        set_busy_button_text(user.is_account_public ? "Following" : "Requested");
+      } else if (action === "unfollow" || action === "unblock") {
+        user.outgoing_status = "none";
+        set_busy_button_text("Follow");
+      } else if (action === "block") {
+        set_busy_button_text("Unblock");
+      }
+      
+      await firestore.update_relationship({
+        id : id,
+        action: action
+      });
+    } catch (e) {
+      $.logger.error(e);
+      set_busy_button_text(null);
+      $.display_error(toast, new Error("Failed to update relationship."));
+    }
+  };
   
   return (
     <Fragment>
@@ -107,6 +169,32 @@ const ListHeader = function({ is_error, on_press_retry, screen, is_refreshing, e
           <Button mode="contained" onPress={local_on_press_retry}>Retry</Button>
           <HelperText type="error">Somthing went wrong!</HelperText>
         </View>
+      )}
+      {screen === "UserScreen" && (
+        <Fragment>
+          <View style={{margin: 10, marginBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "center"}}>
+            <Avatar.Image size={80} source={{uri: snap_user.profile_image_url}} />
+      
+            <View style={{flex: 1, flexDirection: "column"}}>
+              <View style={{flex: 1}}/>
+              {snap_user.name && (<Text variant="titleMedium" style={{alignSelf: "center", marginBottom: 4}}>{snap_user.name}</Text>)}
+              <View style={{flexDirection: "row", justifyContent: "center", height: 40}}>
+                <Chip style={{marginRight: 8, alignItems: "center"}} mode="outlined" onPress={on_press_followers}>{snap_user.follow_by_count || 0} {snap_user.follow_by_count === 1 ? "Follower" : "Followers"}</Chip>
+                <Chip style={{alignItems: "center"}} mode="outlined" onPress={on_press_following}>{snap_user.follow_count || 0} Following</Chip>
+              </View>
+              {(id !== $.session.uid) && <Button mode="contained" style={{marginTop: 10, marginHorizontal: 10}} onPress={on_press_relationship}>{busy_button_text ? busy_button_text : get_relationship_button_text(snap_user.outgoing_status)}</Button>}
+              <View style={{flex: 1}}/>
+            </View>
+          </View>
+      
+          {snap_user.bio && (
+            <View style={{margin: 10, marginTop: 0}}>
+              <Text>{snap_user.bio}</Text>
+            </View>
+          )}
+          
+          <Divider/>
+        </Fragment>
       )}
       {screen === "DiscoverScreen" && (
         <View>

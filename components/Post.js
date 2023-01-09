@@ -22,15 +22,15 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
   const post = cache_get(id);
   const snap_post = cache_get_snapshot(id);
 
-  const user = cache_get(post.uid);
-  const snap_user = cache_get_snapshot(post.uid); // this needs to be here so hook counts stay balanced
+  const user = post ? cache_get(post.uid) : undefined;
+  const snap_user = post ? cache_get_snapshot(post.uid) : undefined;
   
   if (!post || !user) {
     return null;
   }
 
   const on_press_user = function() {
-    navigation.push("UserScreen", { id: user.id });
+    navigation.push("PostListScreen", { screen: "UserScreen", id: user.id });
   };
   
   const on_image_load = function() {
@@ -38,7 +38,7 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
   };
   
   const on_press_post = function() {
-    navigation.push("UserScreen", {id: user.id});
+    navigation.push("PostScreen", {id: id});
   };
   
   const on_press_like_inner = async function() {

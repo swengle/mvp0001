@@ -131,8 +131,8 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, emoji
       } else if (explore_screen_state.selected_group) {
         query_args.push(where("emoji_group", "==", explore_screen_state.selected_group.name));
       }
-    } else if (screen == "HistoryScreen") {
-      query_args = [collection($.db, "users/" + $.session.uid + "/posts"), orderBy("created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
+    } else if (screen == "UserScreen") {
+      query_args = [collection($.db, "users/" + id + "/posts"), orderBy("created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
     } else if (screen === "EmojiScreen") {
       query_args = [collectionGroup($.db, "posts"), where("emoji_char", "==", emoji.char), where("is_current", "==", true), where("is_account_public", "==", true), orderBy("created_at", "desc"), limit(fetch_sizes_by_number_columns[number_columns])];
     } else if (screen === "LocationScreen") {
@@ -253,10 +253,9 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, emoji
         data={explore_screen_state.is_search_active ? undefined : snap_fetcher.default.data}
         renderItem={render_user_post}
         keyExtractor = { item => item.id }
-        ListHeaderComponent = <ListHeader is_error={snap_fetcher.default.is_refresh_error} on_press_retry={on_press_retry} screen={screen} is_refreshing={snap_fetcher.default.is_refreshing} 
+        ListHeaderComponent = <ListHeader id={id} is_error={snap_fetcher.default.is_refresh_error} on_press_retry={on_press_retry} screen={screen} is_refreshing={snap_fetcher.default.is_refreshing} 
           navigation={navigation}
           emoji={emoji} explore_screen_state={explore_screen_state} set_explore_screen_state={set_explore_screen_state}
-          emoji_screen_state={emoji_screen_state} set_emoji_screen_state={set_emoji_screen_state}
           />
         ListFooterComponent = <ListFooter is_error={snap_fetcher.default.is_load_more_error} is_loading_more={snap_fetcher.default.is_loading_more} on_press_retry={on_press_retry}/>
         ListEmptyComponent = <ListEmpty text={empty_list_by_screen[screen] || "No posts found!"} is_refreshing={snap_fetcher.default.is_refreshing}/>

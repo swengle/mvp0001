@@ -1,118 +1,35 @@
 "use strict";
 import $ from "../../setup";
 import _ from "underscore";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useToast } from "react-native-toast-notifications";
-import { FlatList, Image, KeyboardAvoidingView, Platform, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Appbar, Avatar, Badge, Button, Chip, Divider, Text, TextInput, useTheme } from "react-native-paper";
-import * as Contacts from 'expo-contacts';
+import { Appbar, Button, TextInput, useTheme } from "react-native-paper";
 import firestore from "../../firestore/firestore";
 import { collectionGroup, getDocs, limit, query, startAfter, where, orderBy } from "firebase/firestore";
 import Post from "../../components/Post";
 import Comment from "../../components/Comment";
 import ListFooter from "../../components/ListFooter";
 import useGlobalCache from "../../hooks/useGlobalCache";
+import NotFound from "../../components/NotFound";
 
 const FETCH_SIZE = 16;
 const SUBCOMMENT_FETCH_SIZE = 1;
 
-const get_relationship_action = function(status) {
-  if (status === "none" || status === "unfollow") {
-      return "follow";
-    } else if (status === "request" || status === "follow" || status === "ignore") {
-      return "unfollow";
-    } else if (status === "block") {
-      return "unblock";
-    }
-};
-
-const get_relationship_button_text = function(status) {
-  if (status === "none" || status === "unfollow") {
-    return "Follow";
-  } else if (status === "follow") {
-    return "Following";
-  } else if (status === "request" || status === "ignore") {
-    return "Requested";
-  } else if (status === "block") {
-    return "Unblock";
-  }
-  return status;
-};
-
-
 const Header = function({ id, navigation, ref_comment_input, on_press_comment, on_press_comments }) {
-  const toast = useToast();
   const { dark } = useTheme();
-  const [busy_button_text, set_busy_button_text] = useState();
   const { cache_get, cache_get_snapshot } = useGlobalCache();
+  const post = cache_get(id);
+  const snap_post = cache_get_snapshot(id);
+  const user = post ? cache_get(post.uid) : undefined;
   
-  const user = cache_get(id);
-  const snap_user = cache_get_snapshot(id);
-  
-  const post = cache_get(user.current_post_id);
-  const snap_post = cache_get_snapshot(user.current_post_id);
-  
-  if (!user) {
+  if (!post || !user) {
     return null;
   }
-  
-  const on_press_followers = function() {
-    navigation.push("UserListScreen", {id: id, screen: "FollowersScreen"});
-  };
-  
-  const on_press_following = function() {
-    navigation.push("UserListScreen", {id: id, screen: "FollowingScreen"});
-  };
-
-  const on_press_relationship = async function() {
-    try {
-      const action = get_relationship_action(user.outgoing_status);
-      if (action === "follow") {
-        set_busy_button_text(user.is_account_public ? "Following" : "Requested");
-      } else if (action === "unfollow" || action === "unblock") {
-        user.outgoing_status = "none";
-        set_busy_button_text("Follow");
-      } else if (action === "block") {
-        set_busy_button_text("Unblock");
-      }
-      
-      await firestore.update_relationship({
-        id : id,
-        action: action
-      });
-    } catch (e) {
-      $.logger.error(e);
-      set_busy_button_text(null);
-      $.display_error(toast, new Error("Failed to update relationship."));
-    }
-  };
 
   return (
-    <Fragment>
-      <View style={{margin: 10, marginBottom: 0, flexDirection: "row", alignItems: "center", justifyContent: "center"}}>
-        <Avatar.Image size={80} source={{uri: snap_user.profile_image_url}} />
-  
-        <View style={{flex: 1, flexDirection: "column"}}>
-          <View style={{flex: 1}}/>
-          {snap_user.name && (<Text variant="titleMedium" style={{alignSelf: "center", marginBottom: 4}}>{snap_user.name}</Text>)}
-          <View style={{flexDirection: "row", justifyContent: "center", height: 40}}>
-            <Chip style={{marginRight: 8, alignItems: "center"}} mode="outlined" onPress={on_press_followers}>{snap_user.follow_by_count || 0} {snap_user.follow_by_count === 1 ? "Follower" : "Followers"}</Chip>
-            <Chip style={{alignItems: "center"}} mode="outlined" onPress={on_press_following}>{snap_user.follow_count || 0} Following</Chip>
-          </View>
-          {(id !== $.session.uid) && <Button mode="contained" style={{marginTop: 10, marginHorizontal: 10}} onPress={on_press_relationship}>{busy_button_text ? busy_button_text : get_relationship_button_text(snap_user.outgoing_status)}</Button>}
-          <View style={{flex: 1}}/>
-        </View>
-      </View>
-  
-      {false && (
-        <View style={{margin: 10, marginTop: 0}}>
-          {(false && snap_user.bio) && <Text>{snap_user.bio}</Text>}
-        </View>
-      )}
-      
-      <Divider style={{marginTop: 10, marginBottom: 10}}/>
-      
+    <View style={{margin: 10, marginBottom: 0, flexDirection: "row", alignItems: "center", justifyContent: "center"}}>
       {!snap_post && (
         <View style={{marginBottom: 20, padding: 20, paddingLeft: 30}}>
           { dark && <Image source={require("../../assets/dark-puzzled-500.png")} style={{width: $.const.image_sizes["1"].width-40, height: $.const.image_sizes["1"].width-40}}/>}
@@ -121,13 +38,11 @@ const Header = function({ id, navigation, ref_comment_input, on_press_comment, o
       )}
       
       {snap_post && <Post id={post.id} navigation={navigation} number_columns={1} screen="UserScreen" on_press_comment={on_press_comment} on_press_comments={on_press_comments}/>}
-      
-      <Divider/>
-    </Fragment>
+    </View>
   );
 };
 
-const UserScreen= function({navigation, route}) {
+const PostScreen = function({navigation, route}) {
   const toast = useToast();
   const [is_more_menu_visible, set_is_more_menu_visible] = useState(false);
   const [comment_text, set_comment_text] = useState("");
@@ -137,50 +52,37 @@ const UserScreen= function({navigation, route}) {
   const [is_sending_comment, set_is_sending_comment] = useState(false);
   let input_focus_target;
   
-  let id, is_tabs_screen;
+  let id;
   if (route.params && route.params.id) {
     id = route.params.id;
-    is_tabs_screen = false;
-  } else {
-    id = $.session.uid;
-    is_tabs_screen = true;
   }
   
   let is_auto_focus = route.params && route.params.is_auto_focus;
   
-  const { cache_set_users, cache_set_comments, cache_get_fetcher, cache_get_fetcher_snapshot, cache_get, cache_get_snapshot  } = useGlobalCache();
+  const { cache_set_posts, cache_set_comments, cache_get_fetcher, cache_get_fetcher_snapshot, cache_get, cache_get_snapshot  } = useGlobalCache();
   
   const fetcher = cache_get_fetcher(id);
   const snap_fetcher = cache_get_fetcher_snapshot(id);
   
-  const user = cache_get(id);
-  const snap_user = cache_get_snapshot(id);
-  const post = cache_get(user.current_post_id);
-  const snap_post = cache_get_snapshot(user.current_post_id);
-
+  const post = cache_get(id);
+  const snap_post = cache_get_snapshot(id);
   
-  if (!user) {
-    return null;
-  }
-
-  const { colors } = useTheme();
-  
-  const load_user = async function() {
-    const users = await firestore.fetch_users([id]);
-    cache_set_users(users);
+  const load_post = async function() {
+    const users = await firestore.fetch_posts([id]);
+    cache_set_posts(users);
   };
 
   useEffect(() => {
-    load_user();
+    load_post();
     refresh();
   }, []);
   
   const fetch = async function() {
-    if (fetcher.default.is_refreshing || fetcher.default.is_loading_more || !user.current_post_id) {
+    if (fetcher.default.is_refreshing || fetcher.default.is_loading_more) {
       return;
     }
 
-    const query_args = [collectionGroup($.db, "reactions"), where("parent_id", "==", user.current_post_id), where("kind", "==", "comment"), orderBy("created_at", "desc"), limit(FETCH_SIZE+1)];
+    const query_args = [collectionGroup($.db, "reactions"), where("parent_id", "==", post.id), where("kind", "==", "comment"), orderBy("created_at", "desc"), limit(FETCH_SIZE + 1)];
     if (fetcher.default.cursor) {
       query_args.push(startAfter(fetcher.cursor));
     }
@@ -307,25 +209,6 @@ const UserScreen= function({navigation, route}) {
   const on_press_back = function() {
     navigation.goBack();
   };
-
-  const post_count = _.isNumber(snap_user.post_count) ? snap_user.post_count : 0;
-  
-  const on_press_settings = function() {
-    navigation.push("SettingsStack");
-  };
-  
-  const on_press_contacts = async function() {
-    const { status } = await Contacts.requestPermissionsAsync();
-    if (!status) {
-      $.show_contacts_permissions_dialog();
-      return;
-    }
-    navigation.push("ContactsStack"); 
-  };
-  
-  const on_press_history = function() {
-    navigation.push("PostListScreen", {screen: "HistoryScreen"}); 
-  };
   
   const on_dismiss_more_menu = function() {
     set_is_more_menu_visible(false);
@@ -342,8 +225,8 @@ const UserScreen= function({navigation, route}) {
   
   const on_press_send = async function() {
     const params = {
-      parent_user_id: user.id,
-      parent_id: user.current_post.id,
+      parent_user_id: post.uid,
+      parent_id: post.id,
       parent_kind: "post",
       text: comment_text.trim()
     };
@@ -431,23 +314,17 @@ const UserScreen= function({navigation, route}) {
     fetcher.default.is_commentbox_has_focus = false;
   };
   
+  if (!post) {
+    return <NotFound on_press_back={on_press_back}/>;
+  }
+  
   return (
     <SafeAreaView style ={{flex: 1}} edges={['right', 'top', 'left']}>
       <Appbar.Header>
-        { !is_tabs_screen && (<Appbar.BackAction onPress={on_press_back} />) }
-        <Appbar.Content title={snap_user.username}  />
-        { id === $.session.uid && (
-          <Fragment>
-            <View>
-              <Appbar.Action icon="clock" onPress={on_press_history} />
-              <Badge style={{position: "absolute", backgroundColor: colors.outline}}>{post_count}</Badge>
-            </View>
-            <Appbar.Action icon="account-group" onPress={on_press_contacts} />
-            <Appbar.Action icon="cog" onPress={on_press_settings} />
-          </Fragment>
-        )}
+        <Appbar.BackAction onPress={on_press_back} />
+        <Appbar.Content title={"swen"}  />
       </Appbar.Header>
-      <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : 'height'} style={{flex: 1}}>
+      <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : undefined} style={{flex: 1}}>
         <FlatList
           contentContainerStyle={{paddingBottom: 100}}
           ref={ref_list}
@@ -474,4 +351,5 @@ const UserScreen= function({navigation, route}) {
   );
 };
 
-export default UserScreen;
+
+export default PostScreen;

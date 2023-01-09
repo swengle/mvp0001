@@ -11,9 +11,9 @@ import { Camera } from 'expo-camera';
 import { Image, Text } from "react-native";
 import TouchableOpacity  from "../components/TouchableOpacity";
 import NameScreen from "./auth/NameScreen";
+import PostScreen from "./post/PostScreen";
 import PostListScreen from "./post/PostListScreen";
 import AlertsScreen from "./alerts/AlertsScreen";
-import UserScreen from "./user/UserScreen";
 import UserListScreen from "./user/UserListScreen";
 import SettingsScreen from "./settings/SettingsScreen";
 import ProfileScreen from "./settings/ProfileScreen";
@@ -31,7 +31,7 @@ const HomeStack = function() {
   return (
     <HomeStackNavigator.Navigator screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal', gestureResponseDistance: $.const.width }}>
       <HomeStackNavigator.Screen name="PostListScreen" component={PostListScreen} options={{headerShown: false}}/>
-      <HomeStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
+      <HomeStackNavigator.Screen name="PostScreen" component={PostScreen} options={{headerShown: false}}/>
       <HomeStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
       <HomeStackNavigator.Screen name="SettingsStack" component={SettingsStack} options={{headerShown: false}}/>
       <HomeStackNavigator.Screen name="ContactsStack" component={ContactsStack} options={{headerShown: false}}/>
@@ -44,7 +44,7 @@ const DiscoverStack = function() {
   return (
     <DiscoverStackNavigator.Navigator screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal', gestureResponseDistance: $.const.width }}>
       <DiscoverStackNavigator.Screen name="PostListScreen" component={PostListScreen} options={{headerShown: false}} initialParams={{ screen: "DiscoverScreen" }}/>
-      <DiscoverStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
+      <DiscoverStackNavigator.Screen name="PostScreen" component={PostScreen} options={{headerShown: false}}/>
       <DiscoverStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
       <DiscoverStackNavigator.Screen name="SettingsStack" component={SettingsStack} options={{headerShown: false}}/>
       <DiscoverStackNavigator.Screen name="ContactsStack" component={ContactsStack} options={{headerShown: false}}/>
@@ -59,11 +59,11 @@ const AlertsStack = function() {
   return (
     <AlertsStackNavigator.Navigator screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal', gestureResponseDistance: $.const.width }}>
       <AlertsStackNavigator.Screen name="AlertsScreen" component={AlertsScreen} options={{headerShown: false}}/>
-      <AlertsStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
       <AlertsStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
       <AlertsStackNavigator.Screen name="SettingsStack" component={SettingsStack} options={{headerShown: false}}/>
       <AlertsStackNavigator.Screen name="ContactsStack" component={ContactsStack} options={{headerShown: false}}/>
       <AlertsStackNavigator.Screen name="PostListScreen" component={PostListScreen} options={{headerShown: false}}/>
+      <AlertsStackNavigator.Screen name="PostScreen" component={PostScreen} options={{headerShown: false}}/>
     </AlertsStackNavigator.Navigator>
   );
 };
@@ -94,11 +94,11 @@ const UserStackNavigator = createNavigator();
 const UserStack = function() {
   return (
     <UserStackNavigator.Navigator screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal', gestureResponseDistance: $.const.width }}>
-      <UserStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="SettingsStack" component={SettingsStack} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="ContactsStack" component={ContactsStack} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="PostListScreen" component={PostListScreen} options={{headerShown: false}}/>
+      <UserStackNavigator.Screen name="PostScreen" component={PostScreen} options={{headerShown: false}}/>
     </UserStackNavigator.Navigator>
   );
 };

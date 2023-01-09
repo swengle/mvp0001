@@ -41,7 +41,7 @@ const useGlobalCache = function() {
       if (comment.user) {
         comment.user = cache_set_users(comment.user);
       }
-      entities[comment] = comment;
+      entities[comment.id] = comment;
       result.push({ id: comment.id });
     });
     

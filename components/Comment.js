@@ -11,36 +11,29 @@ import LiveTimeAgo from "../components/LiveTimeAgo";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
 const More = function({id, on_press_more, index}) {
-  const item = useGlobalCache.cache_get(id);
+  const comment = useGlobalCache.cache_get(id);
 
   const on_press_more_inner = function() {
     _.isFunction(on_press_more) && on_press_more(id, index);
   };
   
-  return <TouchableOpacity onPress={on_press_more_inner}><View style={{alignItems: "center", marginLeft: item.depth * 20}}><HelperText>More replies</HelperText></View></TouchableOpacity>;
+  return <TouchableOpacity onPress={on_press_more_inner}><View style={{alignItems: "center", marginLeft: comment.depth * 20}}><HelperText>More replies</HelperText></View></TouchableOpacity>;
 };
-
 
 const Comment = function({id, index, navigation, on_press_like, on_press_reply, on_press_likes, on_press_replies, is_being_commented_on, state, on_press_more}) {
   const { colors } = useTheme();
   const anim = useRef(new Animated.Value(1));
-  const [is_liking, set_is_liking] = useState(false);
-  const [is_unliking, set_is_unliking] = useState(false);
-  
   const { cache_get, cache_get_snapshot  } = useGlobalCache();
 
   const comment = cache_get(id);
-  
-  if (!comment) {
-    return null;
-  }
-  const user = cache_get(comment.uid);
-  if (!user) {
-    return null;
-  }
-  
+  const user = cache_get(comment ? comment.uid : undefined);
   const comment_snap = cache_get_snapshot(id);
-  const user_snap = cache_get_snapshot(comment.uid);
+  const user_snap = cache_get_snapshot(comment ? comment.uid : undefined);
+
+  
+  if (!comment || !user) {
+    return null;
+  }
   
   
   const on_press_user = function() {
@@ -69,30 +62,24 @@ const Comment = function({id, index, navigation, on_press_like, on_press_reply, 
         }),
         
       ]).start();
-        
-      set_is_liking(true);
+      _.isNumber(comment.like_count) ? comment.like_count++ : comment.like_count = 1;
+      comment.is_liked = true;
       try {
-        await firestore.create_like({
-          parent_id: comment.id,
-          parent_kind: "comment"
-        });
-        comment.is_liked = true;
+        await firestore.create_like(comment.uid, comment.id, "comment");
       } catch (e) {
         $.logger.error(e);
-      } finally {
-        set_is_liking(false);
+        comment.like_count--;
+        comment.is_liked = false;
       }
     } else {
-      set_is_unliking(true);
+      _.isNumber(comment.like_count) ? comment.like_count-- : comment.like_count = 0;
+      comment.is_liked = false;
       try {
-        await firestore.delete_like({
-          parent: comment
-        });
-        comment.is_liked = false;
+        await firestore.delete_like(comment.id);
       } catch (e) {
+        comment.like_count++;
+        comment.is_liked = true;
         $.logger.error(e);
-      } finally {
-        set_is_unliking(false);
       }
     }
   };
@@ -130,7 +117,7 @@ const Comment = function({id, index, navigation, on_press_like, on_press_reply, 
         <LiveTimeAgo style={{fontSize: 12}} date={comment_snap.created_at.toDate()} style={{marginRight: 16, fontSize: 12, color: colors.outline, width: 60}}/>
         <TouchableOpacity onPress={on_press_like_inner}>
           <Animated.View style={{ transform: [{ scale: anim.current }] }}>
-          <MaterialCommunityIcons name={((is_liking || comment_snap.is_liked) && !is_unliking) ? "heart" : "heart-outline"} size={20} style={((is_liking || comment_snap.is_liked) && !is_unliking) ? {color: "red"} : {color: colors.outline}}/>
+          <MaterialCommunityIcons name={comment_snap.is_liked ? "heart" : "heart-outline"} size={20} style={comment_snap.is_liked ? {color: "red"} : {color: colors.outline}}/>
           </Animated.View>
         </TouchableOpacity>
         {like_count > 0 && (
