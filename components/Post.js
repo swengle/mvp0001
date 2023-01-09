@@ -83,15 +83,15 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
   
   const on_press_comment_inner = function() {
     _.isFunction(on_press_comment) && on_press_comment();
-    if (screen !== "UserScreen" && screen !== "PostScreen") {
-      navigation.push("UserScreen", {id: user.id, is_auto_focus: true, is_scroll_to_comments: true}); 
+    if (screen !== "PostScreen") {
+      navigation.push("PostScreen", {id: post.id, is_auto_focus: true, is_scroll_to_comments: true}); 
     }
   };
   
   const on_press_comments_inner = function() {
     _.isFunction(on_press_comments) && on_press_comments();
-    if (screen !== "UserScreen" && screen !== "PostScreen") {
-      navigation.push("UserScreen", {id: user.id, is_scroll_to_comments: true});
+    if (screen !== "PostScreen") {
+      navigation.push("PostScreen", {id: post.id, is_scroll_to_comments: true});
     }
   };
   

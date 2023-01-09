@@ -37,7 +37,7 @@ const Comment = function({id, index, navigation, on_press_like, on_press_reply, 
   
   
   const on_press_user = function() {
-    navigation.push("UserScreen", {id: comment.uid});
+    navigation.push("PostListScreen", {screen: "UserScreen", id: comment.uid});
   };
   
   const on_press_reply_inner = function() {

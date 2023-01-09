@@ -72,7 +72,7 @@ const User = function({id, row_id, navigation, screen, on_request_approve, on_re
   };
   
   const on_press_user = function() {
-    navigation.push("UserScreen", {id: id});
+    navigation.push("PostListScreen", {screen: "UserScreen", id: id});
   };
   
   const on_press_confirm = async function() {

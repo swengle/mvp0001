@@ -37,7 +37,7 @@ const Header = function({ id, navigation, ref_comment_input, on_press_comment, o
         </View>
       )}
       
-      {snap_post && <Post id={post.id} navigation={navigation} number_columns={1} screen="UserScreen" on_press_comment={on_press_comment} on_press_comments={on_press_comments}/>}
+      {snap_post && <Post id={post.id} navigation={navigation} number_columns={1} on_press_comment={on_press_comment} on_press_comments={on_press_comments}/>}
     </View>
   );
 };

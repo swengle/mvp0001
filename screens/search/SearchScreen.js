@@ -18,7 +18,7 @@ const SearchResult = function({navigation, row}) {
     const user = row.item;
     
     const on_press_user = function() {
-      navigation.push("UserScreen", {id: user.id});
+      navigation.push("PostListScreen", {screen: "UserScreen", id: user.id});
     };
     
     return (
