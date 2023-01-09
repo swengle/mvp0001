@@ -12,7 +12,7 @@ import ListEmpty from "../../components/ListEmpty";
 import { collectionGroup, getDocs, limit, orderBy, query, startAfter, where } from "firebase/firestore";
 import { Appbar, useTheme } from "react-native-paper";
 import firestore from "../../firestore/firestore";
-import useCachedData from "../../hooks/useCachedData";
+import useGlobalCache from "../../hooks/useGlobalCache";
 
 const FETCH_SIZE = 16;
 
@@ -20,22 +20,27 @@ const empty_list_by_screen = {
   LikersScreen: "No likers found!",
   RequestByScreen: "No requests found!",
   FollowingScreen: "Nobody is following!",
-  FollowerScreen: "No followers found!"
+  FollowersScreen: "No followers found!"
+};
+
+const title_by_screen = {
+  LikersScreen: "Likers",
+  RequestByScreen: "Requests",
+  FollowingScreen: "Following",
+  FollowersScreen: "Followers"
 };
 
 const UserListScreen = function({navigation, route}) {
   const { colors } = useTheme();
   
-  const {cache_data, cache_snap_data, cache_sync, cache_empty, cache_reset, cache_set, cache_unset} = useCachedData({
-    is_refreshing: false,
-    is_refresh_error: false,
-    is_load_more_error: false,
-    is_loading_more: false
-  });
-  
   const toast = useToast();
   const id = route.params.id;
   const screen = route.params.screen;
+  
+  const { cache_set_users, cache_get_fetcher, cache_get_fetcher_snapshot  } = useGlobalCache();
+  const fetcher = cache_get_fetcher(screen + "_" + id);
+  const snap_fetcher = cache_get_fetcher_snapshot(screen + "_" + id);
+  
   
   const clear_unread_request_by_count = async function() {
     try {
@@ -53,7 +58,7 @@ const UserListScreen = function({navigation, route}) {
   }, []);
   
   const fetch = async function(cursor) {
-    if (cache_data.is_refreshing || cache_data.is_loading_more) {
+    if (fetcher.default.is_refreshing || fetcher.default.is_loading_more) {
       return;
     }
     let q_args;
@@ -73,19 +78,16 @@ const UserListScreen = function({navigation, route}) {
       }
     }
 
-    if (cache_data.cursor) {
-      q_args.push(startAfter(cache_data.cursor));
+    if (fetcher.default.cursor) {
+      q_args.push(startAfter(fetcher.default.cursor));
     }
     
     const q = query(...q_args);
     
-    cache_data.cursor ? cache_data.is_loading_more = true : cache_data.is_refreshing = true;
+    fetcher.default.cursor ? fetcher.default.is_loading_more = true : fetcher.default.is_refreshing = true;
     try {
       const respone_docs = await getDocs(q);
-      
-      if (!cache_data.cursor) {
-        cache_reset();
-      }
+
       const data = [];
       _.each(respone_docs.docs, function(doc) {
         data.push(doc.data());
@@ -104,43 +106,45 @@ const UserListScreen = function({navigation, route}) {
         }
 
         const users = await firestore.fetch_users(user_ids);
-        _.each(users, function(user) {
-          cache_set(user);
-        });
-      } else if (cache_data.is_refreshing) {
-        cache_empty();
+        
+        if (fetcher.default.is_refreshing ) {
+          fetcher.default.data = cache_set_users(users);
+        } else {
+          fetcher.default.data = [...fetcher.default.data, ...cache_set_users(users)]; 
+        }
+      } else if (fetcher.default.is_refreshing) {
+        fetcher.default.data = [];
       }
       
       if (_.size(respone_docs.docs) === FETCH_SIZE) {
-        cache_data.cursor = _.last(respone_docs.docs);
+        fetcher.default.cursor = _.last(respone_docs.docs);
       } else {
-        cache_data.cursor = null;
+        fetcher.default.cursor = null;
       }
-      cache_sync();
     } catch (e) {
       $.logger.error(e);
-      cache_data.is_loading_more  ? cache_data.is_load_more_error = true : cache_data.is_refresh_error = true;
-      $.display_error(toast, new Error("Failed to load users."));
+      fetcher.default.is_loading_more  ? fetcher.default.is_load_more_error = true : fetcher.default.is_refresh_error = true;
+      $.display_error(toast, new Error("Something went wrong!"));
     } finally {
-      cache_data.is_loading_more  ? cache_data.is_loading_more = false : cache_data.is_refreshing = false;
+      fetcher.default.is_loading_more  ? fetcher.default.is_loading_more = false : fetcher.default.is_refreshing = false;
     }
   };
   
   const refresh = function() {
-    cache_data.cursor = null;
+    fetcher.default.cursor = null;
     fetch();
   };
   
   const fetch_more = function() {
-    if (!cache_data.cursor) {
+    if (!fetcher.default.cursor) {
       return;
     }
     fetch();
   };
   
   const on_press_retry = function() {
-    cache_data.is_refresh_error = false;
-    cache_data.is_load_more_error = false;
+    fetcher.default.is_refresh_error = false;
+    fetcher.default.is_load_more_error = false;
     fetch();
   };
   
@@ -149,48 +153,39 @@ const UserListScreen = function({navigation, route}) {
   };
   
   const on_request_approve = function(id) {
-    cache_unset(id);
+    fetcher.default.data = _.reject(fetcher.default.data, function(item) {
+      return id === item.id;
+    });
   };
   
   const on_request_delete = function(id) {
-    cache_unset(id);
+    fetcher.default.data = _.reject(fetcher.default.data, function(item) {
+      return id === item.id;
+    });
   };
 
   const render_user = function(row) {
-    return <User id={row.item} navigation={navigation} on_request_approve={on_request_approve} on_request_delete={on_request_delete} screen={screen}/>;
+    return <User id={row.item.id} navigation={navigation} on_request_approve={on_request_approve} on_request_delete={on_request_delete} screen={screen}/>;
   };
-  
-  let title;
-  if (screen === "FollowingScreen") {
-    title = "Following";
-  } else if (screen === "FollowersScreen") {
-    title = "Followers";
-  } else if (screen === "LikersScreen") {
-    title = "Likers";
-  } else if (screen === "RequestByScreen") {
-    title = "Requests";
-  }
-  
-  const empty_message = "No users found!";
   
   return (
     <SafeAreaView style ={{flex: 1}} edges={['top', 'left', 'right']}>
       <Appbar.Header>
         <Appbar.BackAction onPress={on_press_back} />
-        <Appbar.Content title={title}  />
+        <Appbar.Content title={title_by_screen[screen]}  />
       </Appbar.Header>
       <FlatList
         style={{flex: 1}}
         keyboardShouldPersistTaps="always"
-        data={cache_snap_data.data}
+        data={snap_fetcher.default.data}
         renderItem={render_user}
-        keyExtractor = { item => item }
-        ListHeaderComponent = <ListHeader is_error={cache_snap_data.is_refresh_error} on_press_retry={on_press_retry}/>
-        ListFooterComponent = <ListFooter is_error={cache_snap_data.is_load_more_error} is_loading_more={cache_snap_data.is_loading_more} on_press_retry={on_press_retry}/>
-        ListEmptyComponent = <ListEmpty is_refreshing={cache_data.is_refreshing} text={empty_list_by_screen[screen]}/>
+        keyExtractor = { item => item.id }
+        ListHeaderComponent = <ListHeader is_error={snap_fetcher.default.is_refresh_error} on_press_retry={on_press_retry}/>
+        ListFooterComponent = <ListFooter is_error={snap_fetcher.default.is_load_more_error} is_loading_more={snap_fetcher.default.is_loading_more} on_press_retry={on_press_retry}/>
+        ListEmptyComponent = <ListEmpty is_refreshing={snap_fetcher.default.is_refreshing} text={empty_list_by_screen[screen]}/>
         refreshControl={
           <RefreshControl
-            refreshing={cache_snap_data.is_refreshing}
+            refreshing={snap_fetcher.default.is_refreshing}
             onRefresh={refresh}
             tintColor={colors.secondary}
             colors={[colors.secondary]}

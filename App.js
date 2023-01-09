@@ -15,8 +15,9 @@ import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 import { StatusBar } from 'expo-status-bar';
 import messaging from '@react-native-firebase/messaging';
 import { Asset } from 'expo-asset';
-import useCachedData from "./hooks/useCachedData";
-import { doc, getDoc, onSnapshot } from "firebase/firestore";
+import useGlobalCache from "./hooks/useGlobalCache";
+import { doc, onSnapshot } from "firebase/firestore";
+import firestore from "./firestore/firestore";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -54,8 +55,6 @@ export default function App() {
   const [is_prep_ready, set_is_prep_ready] = useState();
   const [is_auth_ready, set_is_auth_ready] = useState();
   const [is_splash_hidden, set_is_splash_hidden] = useState();
-  
-
   const { width } = useWindowDimensions();
 
   $.const = {
@@ -91,6 +90,7 @@ export default function App() {
     }
   };
   
+  const { cache_set_users } = useGlobalCache();
   const snap_app = useSnapshot($.app);
   const snap_session = useSnapshot($.session);
   const scheme = useColorScheme();
@@ -142,29 +142,27 @@ export default function App() {
               $.session.stream_token = id_token_result.claims.stream_token;
               
               // update the current user when they are updated in any way
-              subscriptions.fs_current_user = onSnapshot(doc($.db, "users", u.uid), (doc) => {
+              let current_post_id;
+              subscriptions.fs_current_user = onSnapshot(doc($.db, "users", u.uid), async (doc) => {
                 const current_user = doc.data();
-                if (current_user.current_post && current_user.current_post.is_owner_liked) {
-                  current_user.current_post.is_liked = true;
+                if (current_user.current_post_id !== current_post_id) {
+                  await firestore.fetch_user_dependencies([current_user]);
+                  current_post_id = current_user.current_post_id;
                 }
-                useCachedData.cache_set(current_user);
+                cache_set_users(current_user);
                 $.session.uid = u.uid;
               });
 
-              /*
-              const ref_user_counts = doc($.db, "users/" + u.uid + "/counts", "emojis");
-              const user_counts_doc_snap = await getDoc(ref_user_counts);
-              if (user_counts_doc_snap.exists()) {
-                $.session.user_counts = user_counts_doc_snap.data();
-              }
-              */
-
               $.session.global_counts = (await $.cf.get_global_counts()).data;
-              
-              
+
             } catch(e) {
               $.logger.error(e);
             }
+          } else {
+            subscriptions.fs_current_user && subscriptions.fs_current_user();
+            _.each(_.keys($.session), function(key) {
+              delete $.session[key];
+            });
           }
           set_is_auth_ready(true);
         });
@@ -200,7 +198,6 @@ export default function App() {
         set_is_prep_ready(true);
       }
     }
-
     prepare();
     
     return turn_off_subscriptions;

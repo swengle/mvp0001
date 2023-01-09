@@ -8,11 +8,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Appbar, Avatar, Badge, Button, Chip, Divider, Text, TextInput, useTheme } from "react-native-paper";
 import * as Contacts from 'expo-contacts';
 import firestore from "../../firestore/firestore";
-import useCachedData from "../../hooks/useCachedData";
 import { collectionGroup, getDocs, limit, query, startAfter, where, orderBy } from "firebase/firestore";
-import UserPost from "../../components/UserPost";
+import Post from "../../components/Post";
 import Comment from "../../components/Comment";
 import ListFooter from "../../components/ListFooter";
+import { proxy } from "valtio";
+import useGlobalCache from "../../hooks/useGlobalCache";
 
 const FETCH_SIZE = 16;
 const SUBCOMMENT_FETCH_SIZE = 1;
@@ -45,12 +46,17 @@ const Header = function({ id, navigation, ref_comment_input, on_press_comment, o
   const toast = useToast();
   const { dark } = useTheme();
   const [busy_button_text, set_busy_button_text] = useState();
+  const { cache_get, cache_get_snapshot } = useGlobalCache();
   
-  const user = useCachedData.cache_get(id);
-  if (!user || user.is_deleted) {
+  const user = cache_get(id);
+  const snap_user = cache_get_snapshot(id);
+  
+  const post = cache_get(user.current_post_id);
+  const snap_post = cache_get_snapshot(user.current_post_id);
+  
+  if (!user) {
     return null;
   }
-  const snap_user = useCachedData.cache_get_snap(id);
   
   const on_press_followers = function() {
     navigation.push("UserListScreen", {id: id, screen: "FollowersScreen"});
@@ -108,14 +114,14 @@ const Header = function({ id, navigation, ref_comment_input, on_press_comment, o
       
       <Divider style={{marginTop: 10, marginBottom: 10}}/>
       
-      {!snap_user.current_post && (
+      {!snap_post && (
         <View style={{marginBottom: 20, padding: 20, paddingLeft: 30}}>
           { dark && <Image source={require("../../assets/dark-puzzled-500.png")} style={{width: $.const.image_sizes["1"].width-40, height: $.const.image_sizes["1"].width-40}}/>}
           { !dark && <Image source={require("../../assets/light-puzzled-500.png")} style={{width: $.const.image_sizes["1"].width-40, height: $.const.image_sizes["1"].width-40}}/>}
         </View>
       )}
       
-      {snap_user.current_post && <UserPost id={snap_user.id} navigation={navigation} number_columns={1} screen="UserScreen" on_press_comment={on_press_comment} on_press_comments={on_press_comments}/>}
+      {snap_post && <Post id={post.id} navigation={navigation} number_columns={1} screen="UserScreen" on_press_comment={on_press_comment} on_press_comments={on_press_comments}/>}
       
       <Divider/>
     </Fragment>
@@ -142,61 +148,58 @@ const UserScreen= function({navigation, route}) {
   }
   
   let is_auto_focus = route.params && route.params.is_auto_focus;
-
-  const {cache_data, cache_snap_data, cache_sync, cache_reset, cache_get, cache_get_snap, cache_set} = useCachedData({
-    is_first_refresh: true,
-    is_refreshing: false,
-    is_refresh_error: false,
-    is_load_more_error: false,
-    is_loading_more: false,
-    fetchers: {}
-  });
+  
+  const { cache_set_users, cache_get_fetcher, cache_get_fetcher_snapshot, cache_get, cache_get_snapshot  } = useGlobalCache();
+  
+  const fetcher = cache_get_fetcher(id);
+  const snap_fetcher = cache_get_fetcher_snapshot(id);
   
   const user = cache_get(id);
+  const snap_user = cache_get_snapshot(id);
+  const snap_post = cache_get_snapshot(user.current_post_id);
+
+  
   if (!user) {
     return null;
   }
-  
-  const snap_user = cache_get_snap(id);
+
   const { colors } = useTheme();
   
   const load_user = async function() {
     const users = await firestore.fetch_users([id]);
-    _.each(users, function(user) {
-      useCachedData.cache_set(user);
-    });
+    cache_set_users(users);
   };
 
   useEffect(() => {
     load_user();
-    refresh();
+    //refresh();
   }, []);
   
   const fetch = async function() {
-    if (cache_data.is_refreshing || cache_data.is_loading_more || !user.current_post) {
+    if (fetcher.default.is_refreshing || fetcher.default.is_loading_more || !user.current_post_id) {
       return;
     }
 
-    const query_args = [collectionGroup($.db, "reactions"), where("parent_id", "==", user.current_post.id), where("kind", "==", "comment"), orderBy("created_at", "desc"), limit(FETCH_SIZE+1)];
-    if (cache_data.cursor) {
-      query_args.push(startAfter(cache_data.cursor));
+    const query_args = [collectionGroup($.db, "reactions"), where("parent_id", "==", user.current_post_id), where("kind", "==", "comment"), orderBy("created_at", "desc"), limit(FETCH_SIZE+1)];
+    if (fetcher.default.cursor) {
+      query_args.push(startAfter(fetcher.cursor));
     }
     const q_comment = query(...query_args);
-    cache_data.cursor ? cache_data.is_loading_more = true : cache_data.is_refreshing = true;
+    fetcher.default.cursor ? fetcher.default.is_loading_more = true : fetcher.default.is_refreshing = true;
     const comments = [];
     try {
       const snap_comments = await getDocs(q_comment);
-      if (!cache_data.cursor) {
-        cache_reset();
+      if (!fetcher.default.cursor) {
+        fetcher.default.data = [];
       }
       
       let docs = snap_comments.docs;
       
       if (_.size(docs) === (FETCH_SIZE + 1)) {
         docs = _.initial(docs);
-        cache_data.cursor = _.last(docs);
+        fetcher.default.cursor = _.last(docs);
       } else {
-        cache_data.cursor = null;
+        fetcher.default.cursor = null;
       }
       
       if (_.size(docs) === 0) {
@@ -208,22 +211,23 @@ const UserScreen= function({navigation, route}) {
       });
       await firestore.fetch_comment_dependencies(comments);
       _.each(comments, function(comment) {
-        cache_set(comment);
+        //cache_set(comment);
       });
-      cache_sync();
-      if (route.params && route.params.is_scroll_to_comments && cache_data.is_first_refresh) {
+      //cache_sync();
+      if (route.params && route.params.is_scroll_to_comments && fetcher.default.is_first_refresh) {
         scroll_to_index(0, 0.2, 400);
       }
-      cache_data.is_first_refresh = false;
+      fetcher.default.is_first_refresh = false;
     } catch (e) {
       $.logger.error(e);
-      cache_data.is_loading_more ? cache_data.is_load_more_error = true : cache_data.is_refresh_error = true;
+      fetcher.default.is_loading_more ? fetcher.default.is_load_more_error = true : fetcher.default.is_refresh_error = true;
       $.display_error(toast, new Error("Failed to load users."));
     } finally {
-      cache_data.is_loading_more ? cache_data.is_loading_more = false : cache_data.is_refreshing = false;
+      fetcher.default.is_loading_more ? fetcher.default.is_loading_more = false : fetcher.default.is_refreshing = false;
     }
   };
   
+  /*
   const fetch_subcomments = async function(parent_id, index) {
     if (!cache_data.fetchers[parent_id]) {
       cache_data.fetchers[parent_id] = {};
@@ -274,22 +278,23 @@ const UserScreen= function({navigation, route}) {
       cache_data.fetchers[parent_id].is_loading_more ? cache_data.fetchers[parent_id].is_loading_more = false : cache_data.fetchers[parent_id].is_refreshing = false;
     }
   };
+  */
   
   const refresh = function() {
-    cache_data.cursor = null;
+    fetcher.default.cursor = null;
     fetch();
   };
   
   const fetch_more = function() {
-    if (!cache_data.cursor) {
+    if (!fetcher.default.cursor) {
       return;
     }
     fetch();
   };
   
   const on_press_retry = function() {
-    cache_data.is_refresh_error = false;
-    cache_data.is_load_more_error = false;
+    fetcher.default.is_refresh_error = false;
+    fetcher.default.is_load_more_error = false;
     fetch();
   };
   
@@ -297,7 +302,7 @@ const UserScreen= function({navigation, route}) {
     navigation.goBack();
   };
 
-  const post_count = _.isNumber(snap_user.post_count) ? snap_user.post_count-1 : 0;
+  const post_count = _.isNumber(snap_user.post_count) ? snap_user.post_count : 0;
   
   const on_press_settings = function() {
     navigation.push("SettingsStack");
@@ -313,7 +318,7 @@ const UserScreen= function({navigation, route}) {
   };
   
   const on_press_history = function() {
-    navigation.push("UserPostListScreen", {screen: "HistoryScreen"}); 
+    navigation.push("PostListScreen", {screen: "HistoryScreen"}); 
   };
   
   const on_dismiss_more_menu = function() {
@@ -336,16 +341,16 @@ const UserScreen= function({navigation, route}) {
       parent_kind: "post",
       text: comment_text.trim()
     };
-    if (cache_data.active_comment_id) {
-      params.parent_id = cache_data.active_comment_id;
+    if (fetcher.default.active_comment_id) {
+      params.parent_id = fetcher.default.active_comment_id;
       params.parent_kind = "reaction";
     }
     set_is_sending_comment(true);
     try {
-      const target_index = _.isNumber(cache_data.active_comment_index) ? (cache_data.active_comment_index + 1) : 0;
+      const target_index = _.isNumber(fetcher.default.active_comment_index) ? (fetcher.default.active_comment_index + 1) : 0;
       const new_comment = await firestore.create_comment(params.parent_user_id, params.parent_id, params.parent_kind, params.text);
       _.isNumber(user.current_post.comment_count) ? user.current_post.comment_count++ : user.current_post.comment_count = 1;
-      cache_set(new_comment, { is_skip_pending: true, index: target_index || 0 });
+      //cache_set(new_comment, { is_skip_pending: true, index: target_index || 0 });
       
       set_comment_text("");
       set_is_comment_text_good(false);
@@ -360,7 +365,7 @@ const UserScreen= function({navigation, route}) {
   };
   
   const on_press_comment = function() {
-    delete cache_data.active_comment_id;
+    delete fetcher.default.active_comment_id;
     input_focus_target = 0;
     ref_comment_input.current.focus();
   };
@@ -368,8 +373,8 @@ const UserScreen= function({navigation, route}) {
   const on_press_reply = function(id, index) {
     input_focus_target = index;
     ref_comment_input.current.focus();
-    cache_data.active_comment_id = id;
-    cache_data.active_comment_index = index;
+    fetcher.default.active_comment_id = id;
+    fetcher.default.active_comment_index = index;
   };
   
   const scroll_to_index = function(index, view_position, delay) {
@@ -393,12 +398,12 @@ const UserScreen= function({navigation, route}) {
   };
   
   const on_press_replies = function(id, index) {
-    cache_data.active_comment_index = index;
-    fetch_subcomments(id, index);
+    //cache_data.active_comment_index = index;
+    //fetch_subcomments(id, index);
   };
   
   const on_press_more = function(parent_id, index) {
-    fetch_subcomments(parent_id, index);
+    //fetch_subcomments(parent_id, index);
   };
   
   const render_comment = function(row) {
@@ -406,18 +411,18 @@ const UserScreen= function({navigation, route}) {
       return <View style={{height: 100}}/>;
     }
 
-    return <Comment id={ row.item } index={ row.index } on_press_reply={on_press_reply} on_press_replies={on_press_replies} is_being_commented_on={cache_snap_data.active_comment_id === row.item} navigation={navigation} state={cache_data.fetchers[row.item]} on_press_more={(cache_data.fetchers[row.item] && cache_data.fetchers[row.item].cursor) ? on_press_more : undefined}/>;
+    //return <Comment id={ row.item } index={ row.index } on_press_reply={on_press_reply} on_press_replies={on_press_replies} is_being_commented_on={cache_snap_data.active_comment_id === row.item} navigation={navigation} state={cache_data.fetchers[row.item]} on_press_more={(cache_data.fetchers[row.item] && cache_data.fetchers[row.item].cursor) ? on_press_more : undefined}/>;
   };
   
   const on_focus = function() {
-    cache_data.is_commentbox_has_focus = true;
+    fetcher.default.is_commentbox_has_focus = true;
     scroll_to_index(input_focus_target || 0, 0.5, 400);
   };
   
   const on_blur = function() {
-    delete cache_data.active_comment_id;
-    delete cache_data.active_comment_index;
-    cache_data.is_commentbox_has_focus = false;
+    delete fetcher.default.active_comment_id;
+    delete fetcher.default.active_comment_index;
+    fetcher.default.is_commentbox_has_focus = false;
   };
   
   return (
@@ -442,15 +447,15 @@ const UserScreen= function({navigation, route}) {
           ref={ref_list}
           keyboardShouldPersistTaps="never"
           style={{flex: 1}}
-          data={_.size(cache_snap_data.data) === 0 ? ["nothing"] : cache_snap_data.data}
+          data={_.size(fetcher.default.data) === 0 ? ["nothing"] : fetcher.default.data}
           renderItem={render_comment}
           keyExtractor = { item => item }
           ListHeaderComponent = <Header id={id} navigation={navigation} on_press_comment={on_press_comment} on_press_comments={on_press_comments} ref_list={ref_list} is_error={null} on_press_retry={on_press_retry}/>
-          ListFooterComponent = <ListFooter is_error={cache_snap_data.is_load_more_error} is_loading_more={cache_snap_data.is_loading_more} on_press_retry={on_press_retry}/>
+          ListFooterComponent = <ListFooter is_error={fetcher.default.is_load_more_error} is_loading_more={fetcher.default.is_loading_more} on_press_retry={on_press_retry}/>
           onEndReached={fetch_more}
           removeClippedSubviews={true}
         />
-        {_.isObject(snap_user.current_post)  && (
+        {_.isObject(snap_post)  && (
           <View>
             <TextInput ref={ref_comment_input} label="Comment" multiline={true} value={comment_text} onChangeText={on_change_comment_text} style={{maxHeight: 160, paddingRight: 76, fontSize: 14}} autoFocus={is_auto_focus} onFocus={on_focus} onBlur={on_blur}/>
             <View style={{position: "absolute", bottom: 0, top: 0, right: 8, justifyContent: "center"}}>

@@ -11,7 +11,7 @@ import { Camera } from 'expo-camera';
 import { Image, Text } from "react-native";
 import TouchableOpacity  from "../components/TouchableOpacity";
 import NameScreen from "./auth/NameScreen";
-import UserPostListScreen from "./user/UserPostListScreen";
+import PostListScreen from "./post/PostListScreen";
 import AlertsScreen from "./alerts/AlertsScreen";
 import UserScreen from "./user/UserScreen";
 import UserListScreen from "./user/UserListScreen";
@@ -30,7 +30,7 @@ const HomeStackNavigator = createNavigator();
 const HomeStack = function() {
   return (
     <HomeStackNavigator.Navigator screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal', gestureResponseDistance: $.const.width }}>
-      <HomeStackNavigator.Screen name="UserPostListScreen" component={UserPostListScreen} options={{headerShown: false}}/>
+      <HomeStackNavigator.Screen name="PostListScreen" component={PostListScreen} options={{headerShown: false}}/>
       <HomeStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
       <HomeStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
       <HomeStackNavigator.Screen name="SettingsStack" component={SettingsStack} options={{headerShown: false}}/>
@@ -43,7 +43,7 @@ const DiscoverStackNavigator = createNavigator();
 const DiscoverStack = function() {
   return (
     <DiscoverStackNavigator.Navigator screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal', gestureResponseDistance: $.const.width }}>
-      <DiscoverStackNavigator.Screen name="UserPostListScreen" component={UserPostListScreen} options={{headerShown: false}} initialParams={{ screen: "DiscoverScreen" }}/>
+      <DiscoverStackNavigator.Screen name="PostListScreen" component={PostListScreen} options={{headerShown: false}} initialParams={{ screen: "DiscoverScreen" }}/>
       <DiscoverStackNavigator.Screen name="UserScreen" component={UserScreen} options={{headerShown: false}}/>
       <DiscoverStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
       <DiscoverStackNavigator.Screen name="SettingsStack" component={SettingsStack} options={{headerShown: false}}/>
@@ -63,7 +63,7 @@ const AlertsStack = function() {
       <AlertsStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
       <AlertsStackNavigator.Screen name="SettingsStack" component={SettingsStack} options={{headerShown: false}}/>
       <AlertsStackNavigator.Screen name="ContactsStack" component={ContactsStack} options={{headerShown: false}}/>
-      <AlertsStackNavigator.Screen name="UserPostListScreen" component={UserPostListScreen} options={{headerShown: false}}/>
+      <AlertsStackNavigator.Screen name="PostListScreen" component={PostListScreen} options={{headerShown: false}}/>
     </AlertsStackNavigator.Navigator>
   );
 };
@@ -98,7 +98,7 @@ const UserStack = function() {
       <UserStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="SettingsStack" component={SettingsStack} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="ContactsStack" component={ContactsStack} options={{headerShown: false}}/>
-      <UserStackNavigator.Screen name="UserPostListScreen" component={UserPostListScreen} options={{headerShown: false}}/>
+      <UserStackNavigator.Screen name="PostListScreen" component={PostListScreen} options={{headerShown: false}}/>
     </UserStackNavigator.Navigator>
   );
 };
@@ -106,6 +106,7 @@ const UserStack = function() {
 const TabNavigator = createBottomTabNavigator();
 const StackTabs = function({ navigation }) {
   const snap_current_user = $.get_snap_current_user();
+
   const { colors, dark } = useTheme();
   const [permissionCamera, requestPermissionCamera] = Camera.useCameraPermissions();
   
@@ -135,16 +136,16 @@ const StackTabs = function({ navigation }) {
       )}}/>
       <TabNavigator.Screen name="NewPostStack" component={HomeStack} options={{headerShown: false, tabBarLabel: "", tabBarIcon: ({ focused, color }) => (
         <TouchableOpacity style={{postion: "absolute", width: 60, height: 60, top: 12, alignItems: "center"}} onPress={on_press_new_post}>
-          {(!snap_current_user || !snap_current_user.current_post) && (
+          {(!snap_current_user || !snap_current_user.current_post_id) && (
             <Fragment>
               {dark && <Image source={require("../assets/dark-puzzled-500.png")} style={{width: 60, height: 60}}/>}
               {!dark && <Image source={require("../assets/light-puzzled-500.png")} style={{width: 60, height: 60}}/>}
             </Fragment>
           )}
-          {(snap_current_user && snap_current_user.current_post) && (
+          {(snap_current_user && snap_current_user.current_post_emoji_char) && (
             <Fragment>
-              {dark && <Text style={{ fontFamily: "TwemojiMozilla", fontSize: 50}}>{snap_current_user.current_post.emoji_char}</Text>}
-              {!dark && <Text style={{ fontFamily: "TwemojiMozilla", fontSize: 50}}>{snap_current_user.current_post.emoji_char}</Text>}
+              {dark && <Text style={{ fontFamily: "TwemojiMozilla", fontSize: 50}}>{snap_current_user.current_post_emoji_char}</Text>}
+              {!dark && <Text style={{ fontFamily: "TwemojiMozilla", fontSize: 50}}>{snap_current_user.current_post_emoji_char}</Text>}
             </Fragment>
           )}
         </TouchableOpacity>

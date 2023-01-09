@@ -12,7 +12,9 @@ const config = {
     measurementId: "G-P8X9DK3T3Y"
   },
   getstream: {
-    api_key: "jd53kknu578f"
+    //api_key: "jd53kknu578f"
+    api_key: "9d8kupusqg4u",
+    app_id: "1228362"
   },
   cloudinary: {
     api_key: '431814526122448',

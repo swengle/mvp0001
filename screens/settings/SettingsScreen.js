@@ -7,21 +7,24 @@ import { getAuth, signOut } from "firebase/auth";
 import * as WebBrowser from 'expo-web-browser';
 import { useSnapshot } from "valtio";
 import firestore from "../../firestore/firestore";
-import useCachedData from "../../hooks/useCachedData";
+import useGlobalCache from "../../hooks/useGlobalCache";
 
 const SettingsScreen = function({navigation}) {
   const current_user = $.get_current_user();
   const snap_current_user = $.get_snap_current_user();
   const snap_app = useSnapshot($.app);
+  
+  const { flush_all } = useGlobalCache();
 
   const on_press_back = function() {
     navigation.goBack();
   };
   
   const on_press_logout = async function() {
+    delete $.session.uid;
     const auth = getAuth();
     await signOut(auth);
-    useCachedData.flush();
+    flush_all();
   };
   
   const on_press_profile = function() {

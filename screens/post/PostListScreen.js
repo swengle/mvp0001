@@ -5,10 +5,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { View } from "react-native";
 import { Appbar, Menu, Text } from "react-native-paper";
 import GridMenu from "../../components/GridMenu";
-import UserPostList from "../../components/UserPostList";
+import PostList from "../../components/PostList";
 import { useSnapshot } from "valtio";
 
-const UserPostListScreen = function({navigation, route}) {
+const PostListScreen = function({navigation, route}) {
   const snap_session = useSnapshot($.session);
   const screen = (route && route.params) ? route.params.screen : "HomeScreen";
   let id, title, emoji;
@@ -74,12 +74,10 @@ const UserPostListScreen = function({navigation, route}) {
           </Menu>
         </Appbar.Header>
       )}
-      {!emoji_screen_state.segment_value && <UserPostList id={id} screen={screen} navigation={navigation} number_columns={number_columns} emoji={emoji}/>}
-      {emoji_screen_state.segment_value === "everyone" && <UserPostList id={"emoji-everyone"} screen={screen} navigation={navigation} number_columns={number_columns} emoji={emoji} set_emoji_screen_state={set_emoji_screen_state} emoji_screen_state={emoji_screen_state}/>}
-      {emoji_screen_state.segment_value === "you" && <UserPostList id={"emoji-you"} screen={screen} navigation={navigation} number_columns={number_columns} emoji={emoji} set_emoji_screen_state={set_emoji_screen_state} emoji_screen_state={emoji_screen_state}/>}
+      <PostList id={id} screen={screen} navigation={navigation} number_columns={number_columns} emoji={emoji} set_emoji_screen_state={set_emoji_screen_state} emoji_screen_state={emoji_screen_state}/>
     </SafeAreaView>
   );
 };
 
 
-export default UserPostListScreen;
+export default PostListScreen;

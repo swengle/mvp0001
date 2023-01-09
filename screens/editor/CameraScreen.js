@@ -146,6 +146,8 @@ const CameraScreen = function({ navigation, route }) {
       }
       navigation.push("SelectEmojiScreen");
     }, 1000);
+    
+    
     const result = await ImagePicker.launchImageLibraryAsync({quality: 0.8, mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: (source === "new_pic" ? false : true)});
     if (!result.canceled) {
       const asset = _.first(result.assets);

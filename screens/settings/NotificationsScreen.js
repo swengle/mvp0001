@@ -1,12 +1,10 @@
 "use strict";
 import $ from "../../setup";
-import _ from "underscore";
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Appbar, Button, Checkbox, Switch, Text, List} from "react-native-paper";
 import {useSnapshot} from "valtio";
 import firestore from "../../firestore/firestore";
-
 
 const Notificationscreen = function({navigation}) {
   const snap_session = useSnapshot($.session);

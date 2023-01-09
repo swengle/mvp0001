@@ -17,7 +17,7 @@ const { colors } = useTheme();
       on_press(emoji);
       return;
     }
-    navigation.push("UserPostListScreen", {screen: "EmojiScreen", emoji: emoji.char});
+    navigation.push("PostListScreen", {screen: "EmojiScreen", emoji: emoji.char});
   };
   
   let now = Date.now();

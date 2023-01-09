@@ -11,7 +11,7 @@ import { useToast } from "react-native-toast-notifications";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import firestore from "../../firestore/firestore";
 import EmojiOverlay from "../../components/EmojiOverlay";
-import useCachedData from "../../hooks/useCachedData";
+import useGlobalCache from "../../hooks/useGlobalCache";
 import * as Location from 'expo-location';
 
 const ChipLocation = function({location, on_press}) {
@@ -28,6 +28,7 @@ const DetailsScreen = function({navigation, route}) {
   const [is_dialog_enabled_location, set_is_dialog_enabled_location] = useState();
   const [caption_value, set_caption_value] = useState($.editor.caption_value);
   const [location_permission_status, set_location_permission_status] = useState(null);
+  const { cache_set_posts, cache_get_fetcher  } = useGlobalCache();
 
   const snap_editor = useSnapshot($.editor);
   const snap_uploader = useSnapshot($.uploader.state);
@@ -110,7 +111,12 @@ const DetailsScreen = function({navigation, route}) {
       }
       
       const new_post = await firestore.create_post(params);
-      useCachedData.cache_set(new_post);
+      const data = cache_set_posts(new_post);
+      const history_fetcher = cache_get_fetcher("HistoryScreen");
+      if (history_fetcher && history_fetcher.default) {
+        history_fetcher.default.data ? history_fetcher.default.data.unshift(data) : history_fetcher.default.data = [data];
+      }
+      
       navigation.navigate("StackTabs");
     } catch (e) {
       $.logger.error(e);

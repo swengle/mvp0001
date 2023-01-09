@@ -19,7 +19,7 @@ import messaging from '@react-native-firebase/messaging';
 import * as timeago from 'timeago.js';
 import firestore from "./firestore/firestore";
 import { doc, getDoc } from "firebase/firestore";
-import useCachedData from "./hooks/useCachedData";
+import useGlobalCache from "./hooks/useGlobalCache";
 import { getFunctions, httpsCallable } from "firebase/functions";
 
 $.emoji_data = require("./assets/emoji.json");
@@ -89,13 +89,13 @@ $.session = proxy({});
 
 $.get_snap_current_user = function() {
   if ($.session && $.session.uid) {
-    return useCachedData.cache_get_snap($.session.uid);
+    return useGlobalCache.cache_get_snapshot($.session.uid);
   }
 };
 
 $.get_current_user = function() {
   if ($.session && $.session.uid) {
-    return useCachedData.cache_get($.session.uid);
+    return useGlobalCache.cache_get($.session.uid);
   }
 };
 
