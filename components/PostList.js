@@ -25,10 +25,11 @@ const empty_list_by_screen = {
   LocationScreen: "Nobody is feeling anything here it seems!",
   DiscoverScreen: "Nothing to discover yet!",
   HistoryScreen: "You haven't made an posts yet!",
-  EmojiScreen: "Nobody is feeling this right now. At least not publicly!"
+  EmojiScreen: "Nobody is feeling this right now. At least not publicly!",
+  UserScreen: "User hasn't posted a swen yet!"
 };
 
-const PostList = function({ id, screen, navigation, emoji, number_columns, emoji_screen_state, set_emoji_screen_state }) {
+const PostList = function({ id, screen, navigation, emoji, number_columns, emoji_screen_state, set_emoji_screen_state, coordinate }) {
   const { colors } = useTheme();
   const [explore_screen_state, set_explore_screen_state] = useState({segment_value: "users"});
   const { cache_set_posts, cache_get_fetcher, cache_get_fetcher_snapshot  } = useGlobalCache();
@@ -37,6 +38,8 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, emoji
   if (screen === "EmojiScreen") {
     fetcher_id += emoji.char;
   } else if (screen === "LocationScreen") {
+    fetcher_id += id;
+  } else if (screen === "UserScreen") {
     fetcher_id += id;
   }
   
@@ -223,7 +226,7 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, emoji
     fetch();
   };
 
-  const render_user_post = function(row) {
+  const render_post = function(row) {
     return <Post navigation={navigation} id={row.item.id} number_columns={number_columns} screen={screen}/>;
   };
 
@@ -250,12 +253,11 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, emoji
         onScroll={handle_scroll}
         key={number_columns}
         keyboardShouldPersistTaps={explore_screen_state.is_search_active ? "always" : "never"}
-        data={explore_screen_state.is_search_active ? undefined : snap_fetcher.default.data}
-        renderItem={render_user_post}
+        data={snap_fetcher.default.data}
+        renderItem={render_post}
         keyExtractor = { item => item.id }
-        ListHeaderComponent = <ListHeader id={id} is_error={snap_fetcher.default.is_refresh_error} on_press_retry={on_press_retry} screen={screen} is_refreshing={snap_fetcher.default.is_refreshing} 
-          navigation={navigation}
-          emoji={emoji} explore_screen_state={explore_screen_state} set_explore_screen_state={set_explore_screen_state}
+        ListHeaderComponent = <ListHeader id={id} emoji={emoji} is_error={snap_fetcher.default.is_refresh_error} on_press_retry={on_press_retry} screen={screen} is_refreshing={snap_fetcher.default.is_refreshing} 
+          navigation={navigation} explore_screen_state={explore_screen_state} set_explore_screen_state={set_explore_screen_state} coordinate={coordinate}
           />
         ListFooterComponent = <ListFooter is_error={snap_fetcher.default.is_load_more_error} is_loading_more={snap_fetcher.default.is_loading_more} on_press_retry={on_press_retry}/>
         ListEmptyComponent = <ListEmpty text={empty_list_by_screen[screen] || "No posts found!"} is_refreshing={snap_fetcher.default.is_refreshing}/>

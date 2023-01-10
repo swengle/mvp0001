@@ -115,7 +115,7 @@ const PostListScreen = function({navigation, route}) {
           </Menu>
         </Appbar.Header>
       )}
-      <PostList id={id} screen={screen} navigation={navigation} number_columns={number_columns} emoji={emoji}/>
+      <PostList id={id} screen={screen} navigation={navigation} number_columns={number_columns} emoji={emoji} coordinate={route.params ? route.params.coordinate : undefined}/>
     </SafeAreaView>
   );
 };

@@ -112,7 +112,7 @@ const DetailsScreen = function({navigation, route}) {
       
       const new_post = await firestore.create_post(params);
       const data = cache_set_posts(new_post);
-      const history_fetcher = cache_get_fetcher("HistoryScreen");
+      const history_fetcher = cache_get_fetcher("UserScreen" + $.session.uid);
       if (history_fetcher && history_fetcher.default) {
         history_fetcher.default.data ? history_fetcher.default.data.unshift(data) : history_fetcher.default.data = [data];
       }

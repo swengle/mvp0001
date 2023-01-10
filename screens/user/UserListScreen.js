@@ -63,7 +63,7 @@ const UserListScreen = function({navigation, route}) {
     }
     let q_args;
     if (screen === "LikersScreen") {
-      q_args = [collectionGroup($.db, "reactions"), where("parent_id", "==", id), where("parent_id", "==", id), where("is_liked", "==", true), orderBy("updated_at", "desc"), limit(FETCH_SIZE)];
+      q_args = [collectionGroup($.db, "likes"), where("parent_id", "==", id), where("is_liked", "==", true), orderBy("updated_at", "desc"), limit(FETCH_SIZE)];
     } else {
       q_args = [collectionGroup($.db, "relationships"), orderBy("updated_at", "desc"), limit(FETCH_SIZE)];
       if (screen === "FollowingScreen") {

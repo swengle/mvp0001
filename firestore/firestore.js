@@ -1,6 +1,6 @@
 "use strict";
 import _ from "underscore";
-import { arrayUnion, collection, collectionGroup, deleteField, doc, documentId, getDoc, getDocs, increment, query, runTransaction, setDoc, updateDoc, where, Timestamp } from "firebase/firestore";
+import { collection, collectionGroup, deleteField, doc, documentId, getDoc, getDocs, increment, query, runTransaction, setDoc, updateDoc, where, Timestamp } from "firebase/firestore";
 import { getHex } from "pastel-color";
 import useGlobalCache from "../hooks/useGlobalCache";
 
@@ -114,18 +114,18 @@ const firestore = {
 
     const post_chunks = _.chunk(posts, max_query_in_size);
     await Promise.all(post_chunks.map(async (post_chunk) => {
-      const user_ids = [], reaction_ids = [];
+      const user_ids = [], like_ids = [];
       _.each(post_chunk, function(post) {
         user_ids.push(post.uid);
-        reaction_ids.push("like-" + post.id);
+        like_ids.push("like-" + post.id);
       });
 
-      const q_reaction = _.size(reaction_ids) === 0 ? null : query(collection(db, "users/" + $.session.uid + "/reactions"), where(documentId(), "in", reaction_ids));
-      let snap_reactions, users;
+      const q_likes = _.size(like_ids) === 0 ? null : query(collection(db, "users/" + $.session.uid + "/likes"), where(documentId(), "in", like_ids));
+      let snap_likes, users;
 
       await Promise.all([
         users = (_.size(user_ids) === 0 || is_calling_from_fetch_users) ? null : await firestore.fetch_users(user_ids, true),
-        snap_reactions = q_reaction ? await getDocs(q_reaction) : null
+        snap_likes = q_likes ? await getDocs(q_likes) : null
       ]);
       
       const users_by_id = {};
@@ -134,12 +134,12 @@ const firestore = {
       });
       
       const liked_by_post_id = {};
-      if (snap_reactions) {
-        _.each(snap_reactions.docs, function(reaction_doc) {
-          if (reaction_doc.exists()) {
-            const reaction = reaction_doc.data();
-            if (reaction.is_liked) {
-              liked_by_post_id[reaction.parent_id] = true;
+      if (snap_likes) {
+        _.each(snap_likes.docs, function(like_doc) {
+          if (like_doc.exists()) {
+            const like = like_doc.data();
+            if (like.is_liked) {
+              liked_by_post_id[like.parent_id] = true;
             }
           }
         });        
@@ -163,7 +163,6 @@ const firestore = {
     const new_id = doc(collection(db, "users/" + current_user.id + "/posts")).id;
     const new_post = {
       id: new_id,
-      kind: "post",
       uid: $.session.uid,
       is_account_public: current_user.is_account_public,
       created_at: now,
@@ -249,31 +248,39 @@ const firestore = {
 
     return;
   },
-  create_like: async function(parent_user_id, parent_id, parent_kind) {
-    const reaction_ref = doc(db, "users/" + $.session.uid + "/reactions", "like-" + parent_id);
+  create_like: async function(is_reply, id) {
+    const q = query(collectionGroup($.db, is_reply ? "comments" : "posts"), where("id", "==", id));
+    const snap_docs = await getDocs(q);
+    
+    if (_.size(snap_docs.docs) !== 1) {
+      return;
+    }
+    const parent = snap_docs.docs[0].data();
+    
+    const like_ref = doc(db, "users/" + $.session.uid + "/likes", "like-" + id);
     await runTransaction(db, async (transaction) => {
-      const reaction_doc_snap = await transaction.get(reaction_ref);
-      if (reaction_doc_snap.exists()) {
-        const reaction = reaction_doc_snap.data();
-        if (reaction.is_liked) {
+      const like_doc_snap = await transaction.get(like_ref);
+      if (like_doc_snap.exists()) {
+        const like = like_doc_snap.data();
+        if (like.is_liked) {
           return;
         }
       }
-       
+
       const now = Timestamp.now();
       
-      const updates = {
+      const parent_updates = {
         like_count: increment(1),
         updated_at: now,
         rev: increment(1)
       };
       
-      if (parent_kind === "post") {
-        const post_ref = doc(db, "users/" + parent_user_id+ "/posts", parent_id);
-        await transaction.update(post_ref, updates);
+      if (is_reply) {
+        const comment_ref = doc(db, "users/" + parent.uid + "/comments", parent.id);
+        await transaction.update(comment_ref, parent_updates);
       } else {
-        const comment_ref = doc(db, "users/" + parent_user_id+ "/reactions", parent_id);
-        await transaction.update(comment_ref, updates);
+        const post_ref = doc(db, "users/" + parent.uid + "/posts", parent.id);
+        await transaction.update(post_ref, parent_updates);
       }
       
       const like = {
@@ -282,73 +289,78 @@ const firestore = {
         is_liked: true, 
         internal_like_count: increment(1), 
         rev: increment(1), 
-        parent_id: parent_id, 
-        parent_kind: parent_kind, 
-        parent_user_id: parent_user_id,
-        kind: "like"
+        parent_id: parent.id, 
+        parent_user_id: parent.uid,
+        is_reply: is_reply
       };
 
-      await transaction.set(reaction_ref, like);
+      await transaction.set(like_ref, like);
       
       // alerts are best effort, will probably movo to a trigger
       const activity = {
-        id: $.session.uid + "_" + parent_id,
+        id: $.session.uid + "_" + like.parent_id,
         created_at: now,
         group: "like_" + like.parent_id + "_" + like.updated_at.toDate().toISOString().split("T")[0],
         verb: "like",
-        target: parent_id,
+        target: like.parent_id,
         actor: like.uid
       };
-      const like_alert_ref = doc(db, "users/" + parent_user_id + "/alerts", activity.group);
+      const like_alert_ref = doc(db, "users/" + parent.uid + "/alerts", activity.group);
       const alerts_updates = { updated_at: now };
       alerts_updates["activities." + activity.id] = activity;
       await setDoc(like_alert_ref, alerts_updates, {merge: true});
     });
   },
-  delete_like: async function(parent_id) {
-    const reaction_ref = doc(db, "users/" + $.session.uid + "/reactions", "like-" + parent_id);
+  delete_like: async function(id) {
+    const like_ref = doc(db, "users/" + $.session.uid + "/likes", "like-" + id);
     await runTransaction(db, async (transaction) => {
-      const reaction_doc_snap = await transaction.get(reaction_ref);
-      if (reaction_doc_snap.exists()) {
-        const reaction = reaction_doc_snap.data();
-        if (reaction.is_liked) {
+      const like_doc_snap = await transaction.get(like_ref);
+      if (like_doc_snap.exists()) {
+        const like = like_doc_snap.data();
+        if (like.is_liked) {
           const updates = {
             like_count: increment(-1),
             updated_at: Timestamp.now(),
             rev: increment(1)
           };
 
-          if (reaction.parent_kind === "post") {
-            const post_ref = doc(db, "users/" + reaction.parent_user_id + "/posts", parent_id);
-            await transaction.update(post_ref, updates);
-          } else {
-            const comment_ref = doc(db, "users/" + reaction.parent_user_id + "/reactions", parent_id);
+          if (like.is_reply) {
+            const comment_ref = doc(db, "users/" + like.parent_user_id + "/comments", id);
             await transaction.update(comment_ref, updates);
+          } else {
+            const post_ref = doc(db, "users/" + like.parent_user_id + "/posts", id);
+            await transaction.update(post_ref, updates);
           }
-          await transaction.update(reaction_ref, { updated_at: Timestamp.now(), is_liked: deleteField(), rev: increment(1) });
+          await transaction.update(like_ref, { updated_at: Timestamp.now(), is_liked: deleteField(), rev: increment(1) });
           
-          const like_alert_ref = doc(db, "users/" + reaction.parent_user_id + "/alerts", "like_" + reaction.parent_id + "_" + reaction.updated_at.toDate().toISOString().split("T")[0]);
+          const like_alert_ref = doc(db, "users/" + like.parent_user_id + "/alerts", "like_" + like.parent_id + "_" + like.updated_at.toDate().toISOString().split("T")[0]);
           const alerts_updates = {};
-          alerts_updates["activities." + reaction.id] = deleteField();
+          alerts_updates["activities." + like.id] = deleteField();
           await setDoc(like_alert_ref, alerts_updates, {merge: true});
         }
       }
     });
   },
-  create_comment: async function(parent_user_id, parent_id, parent_kind, text) {
+  create_comment: async function(is_reply, id, text) {
+    const q = query(collectionGroup($.db, is_reply ? "comments" : "posts"), where("id", "==", id));
+    const snap_docs = await getDocs(q);
+    if (_.size(snap_docs.docs) !== 1) {
+      return;
+    }
+  
+    const parent = snap_docs.docs[0].data();
+
     const now = Timestamp.now();
-    const new_id = doc(collection(db, "users/" + $.session.uid + "/reactions")).id;
-    const new_reaction = {
+    const new_id = doc(collection(db, "users/" + $.session.uid + "/comments")).id;
+    const comment = {
       id: new_id,
-      parent_user_id: parent_user_id,
-      parent_id: parent_id,
-      parent_kind: parent_kind,
+      parent_user_id: parent.uid,
+      parent_id: parent.id,
+      is_reply: is_reply,
       uid: $.session.uid,
       created_at: now,
       updated_at: now,
-      kind: "comment",
       text: text,
-      depth: 0,
       rev: 0
     };
     
@@ -359,68 +371,57 @@ const firestore = {
     };
     
     await runTransaction(db, async (transaction) => {
-      if (parent_kind === "post") {
-          const post_ref = doc(db, "users/" + parent_user_id+ "/posts", parent_id);
-          await transaction.update(post_ref, parent_updates);
+      if (comment.is_reply) {
+        const comment_ref = doc(db, "users/" + comment.parent_user_id + "/comments", id);
+        await transaction.update(comment_ref, parent_updates);
       } else {
-        const parent_comment_ref = doc(db, "users/" + parent_user_id+ "/reactions", parent_id);
-        const parent_comment_doc = await transaction.get(parent_comment_ref);
-        if (!parent_comment_doc.exists()) {
-          return;
-        }
-        const parent_comment = parent_comment_doc.data();
-        new_reaction.depth = parent_comment.depth + 1;
-        await transaction.update(parent_comment_ref, parent_updates);
+        const post_ref = doc(db, "users/" + comment.parent_user_id + "/posts", id);
+        await transaction.update(post_ref, parent_updates);
       }
-      const new_reaction_ref = doc(db, "users/" + $.session.uid + "/reactions", new_reaction.id);
-      await transaction.set(new_reaction_ref, new_reaction);
+
+      const new_comment_ref = doc(db, "users/" + $.session.uid + "/comments", comment.id);
+      comment.depth = comment.is_reply ? (parent.depth + 1) : 0;
+      comment.path = comment.is_reply ? (parent.path + ("/" + comment.id)) : ("/" + comment.id);
+      await transaction.set(new_comment_ref, comment);
       
       
-      // alerts are best effort, will probably movo to a trigger
+      // alerts are best effort, will probably move to a trigger
       const activity = {
-        id: new_reaction.id,
+        id: comment.id,
         created_at: now,
-        group: "comment_" + new_reaction.parent_id + "_" + new_reaction.created_at.toDate().toISOString().split("T")[0],
+        group: "comment_" + comment.parent_id + "_" + comment.created_at.toDate().toISOString().split("T")[0],
         verb: "comment",
-        target: parent_id,
-        actor: new_reaction.uid
+        target: parent.id,
+        actor: comment.uid
       };
-      const comment_alert_ref = doc(db, "users/" + parent_user_id + "/alerts", activity.group);
+      const comment_alert_ref = doc(db, "users/" + parent.uid + "/alerts", activity.group);
       const alerts_updates = { updated_at: now };
       alerts_updates["activities." + activity.id] = activity;
       await setDoc(comment_alert_ref, alerts_updates, {merge: true});
     });
 
-    return new_reaction;
+    return comment;
   },
   delete_comment: async function(id) {
-    const reaction_ref = doc(db, "users/" + $.session.uid+ "/reactions", id);
+    const comment_ref = doc(db, "users/" + $.session.uid + "/comments", id);
     await runTransaction(db, async (transaction) => {
-      const reaction_doc_snap = await transaction.get(reaction_ref);
-      if (reaction_doc_snap.exists()) {
-        const reaction = reaction_doc_snap.data();
-        if (reaction.kind === "comment") {
-          const updates = {
-            comment_count: increment(-1),
-            updated_at: Timestamp.now(),
-            rev: increment(1)
-          };
-          
-          if (reaction.parent_kind === "post") {
-            const post_ref = doc(db, "users/" + reaction.parent_user_id + "/posts", reaction.parent_id);
-            await transaction.update(post_ref, updates);
-          } else {
-            const comment_ref = doc(db, "users/" + reaction.parent_user_id+ "/reactions", id);
-            await transaction.update(comment_ref, updates);
-          }
+      const comment_doc_snap = await transaction.get(comment_ref);
+      if (comment_doc_snap.exists()) {
+        const comment = comment_doc_snap.data();
+        const parent_updates = {
+          comment_count: increment(-1),
+          updated_at: Timestamp.now(),
+          rev: increment(1)
+        };
 
-          await transaction.delete(reaction_ref);
-          
-          const comment_alert_ref = doc(db, "users/" + reaction.parent_user_id + "/alerts", reaction.activity.group);
-          const alerts_updates = {};
-          alerts_updates["activities." + reaction.id] = deleteField();
-          await setDoc(comment_alert_ref, alerts_updates, {merge: true});
+        if (comment.is_reply) {
+          const comment_ref = doc(db, "users/" + comment.parent_user_id + "/comments", id);
+          await transaction.update(comment_ref, parent_updates);
+        } else {
+          const post_ref = doc(db, "users/" + comment.parent_user_id + "/posts", id);
+          await transaction.update(post_ref, parent_updates);
         }
+        await transaction.delete(comment_ref);
       }
     });
   },
@@ -432,27 +433,27 @@ const firestore = {
     options = options || {};
     const comment_chunks = _.chunk(comments, max_query_in_size);
     await Promise.all(comment_chunks.map(async (comment_chunk) => {
-      const reaction_ids = [];
+      const like_ids = [];
       const user_ids = {};
       _.each(comment_chunk, function(comment) {
         user_ids[comment.uid] = true; 
-        reaction_ids.push("like-" + comment.id);
+        like_ids.push("like-" + comment.id);
       });
       
-      const q_reaction = _.size(reaction_ids) === 0 ? null : query(collection(db, "users/" + $.session.uid + "/reactions"), where(documentId(), "in", reaction_ids));
-      let snap_reactions;
+      const q_like = _.size(like_ids) === 0 ? null : query(collection(db, "users/" + $.session.uid + "/likes"), where(documentId(), "in", like_ids));
+      let snap_likes;
 
       await Promise.all([
         await firestore.fetch_users(_.keys(user_ids)),
-        snap_reactions = q_reaction ? await getDocs(q_reaction) : null
+        snap_likes = q_like ? await getDocs(q_like) : null
       ]);
       
       const liked_by_comment_id = {};
-      _.each(snap_reactions.docs, function(reaction_doc) {
-        if (reaction_doc.exists()) {
-          const reaction = reaction_doc.data();
-          if (reaction.is_liked) {
-            liked_by_comment_id[reaction.parent_id] = true;
+      _.each(snap_likes.docs, function(like_doc) {
+        if (like_doc.exists()) {
+          const like = like_doc.data();
+          if (like.is_liked) {
+            liked_by_comment_id[like.parent_id] = true;
           }
         }
       });

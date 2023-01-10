@@ -2,7 +2,7 @@
 import $ from "../setup";
 import _ from "underscore";
 import { Fragment, useState } from "react";
-import { FlatList, View } from 'react-native';
+import { FlatList, Linking, Platform, View } from 'react-native';
 import { Avatar, Button, Chip, Divider, HelperText, Text, useTheme } from "react-native-paper";
 import approx from "approximate-number";
 import TouchableOpacity  from "../components/TouchableOpacity";
@@ -11,6 +11,8 @@ import { useSnapshot } from "valtio";
 import { useToast } from "react-native-toast-notifications";
 import firestore from "../firestore/firestore";
 import useGlobalCache from "../hooks/useGlobalCache";
+import MapView from 'react-native-maps';
+import { Marker } from 'react-native-maps';
 
 const get_relationship_action = function(status) {
   if (status === "none" || status === "unfollow") {
@@ -78,7 +80,7 @@ const Emoji = function({emoji, on_press, is_not_selected}) {
   );
 };
 
-const ListHeader = function({ id, is_error, on_press_retry, screen, is_refreshing, emoji, explore_screen_state, set_explore_screen_state, navigation}) {
+const ListHeader = function({ id, is_error, on_press_retry, screen, is_refreshing, emoji, explore_screen_state, set_explore_screen_state, navigation, coordinate}) {
   const { cache_get, cache_get_snapshot  } = useGlobalCache();
   const snap_session = useSnapshot($.session);
   const [busy_button_text, set_busy_button_text] = useState();
@@ -158,8 +160,19 @@ const ListHeader = function({ id, is_error, on_press_retry, screen, is_refreshin
     } catch (e) {
       $.logger.error(e);
       set_busy_button_text(null);
-      $.display_error(toast, new Error("Failed to update relationship."));
+      $.display_error(toast, new Error("Something went wrong!"));
     }
+  };
+  
+  const open_in_maps = function() {
+    const scheme = Platform.select({ ios: 'maps:0,0?q=', android: 'geo:0,0?q=' });
+    const latLng = `${coordinate.latitude},${coordinate.longitude}`;
+    const label = "swen location";
+    const url = Platform.select({
+      ios: `${scheme}${label}@${latLng}`,
+      android: `${scheme}${latLng}(${label})`
+    });
+    Linking.openURL(url);
   };
   
   return (
@@ -168,6 +181,14 @@ const ListHeader = function({ id, is_error, on_press_retry, screen, is_refreshin
         <View style={{marginTop: 40, alignItems: "center"}}>
           <Button mode="contained" onPress={local_on_press_retry}>Retry</Button>
           <HelperText type="error">Somthing went wrong!</HelperText>
+        </View>
+      )}
+      {screen === "LocationScreen" && (
+        <View>
+          <MapView style={{height: 140}} initialRegion={{latitude: coordinate.latitude, longitude: coordinate.longitude, latitudeDelta: 0.0922, longitudeDelta: 0.0421}}>
+            <Marker key={0} coordinate={{latitude: coordinate.latitude, longitude: coordinate.longitude}}/>
+          </MapView>
+          <Button mode="contained" onPress={open_in_maps} style={{position: "absolute", right: 4, bottom: 4}}>Open Map</Button>
         </View>
       )}
       {screen === "UserScreen" && (

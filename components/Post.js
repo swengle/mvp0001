@@ -62,7 +62,7 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
       _.isNumber(post.like_count) ? post.like_count++ : post.like_count = 1;
       post.is_liked = true;
       try {
-        await firestore.create_like(post.uid, post.id, "post");
+        await firestore.create_like(false, post.id);
       } catch (e) {
         $.logger.error(e);
         post.like_count--;
@@ -105,8 +105,62 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
   };
   
   const on_press_location = function() {
-    navigation.push("PostListScreen", {screen: "LocationScreen", id: post.location.id, title: post.location.name});
+    navigation.push("PostListScreen", {screen: "LocationScreen", id: post.location.id, title: post.location.name, coordinate: {latitude: post.location.lat, longitude: post.location.lon}});
   };
+  
+  if (screen === "PostScreen") {
+    const like_count = _.isNumber(snap_post.like_count) ? snap_post.like_count : 0;
+    const comment_count = _.isNumber(snap_post.comment_count) ? snap_post.comment_count : 0;
+    return (
+      <View>
+        <View style={{flex: 1, justifyContent: "flex-end", margin: 10}}>
+          <TouchableOpacity onPress={on_press_user} activeOpacity={0.8}>
+            <View style={{flexDirection: "row", alignItems: "center"}}>
+              <View style={[{borderWidth: 1, borderColor: "white", marginRight: 4, borderRadius: 25}]}>
+                <Avatar.Image size={50} source={{uri: snap_user.profile_image_url}} />
+              </View>
+              <View>
+                <Text style={{fontSize: 14, fontWeight: "bold", marginBottom: 2}}>{snap_user.username}</Text>
+                {snap_post.location && <TouchableOpacity onPress={on_press_location} style={{flexDirection: "row"}}><Text numberOfLines={1} style={{fontSize: 13}}>{snap_post.location.name}</Text></TouchableOpacity>}
+              </View>
+              <View style={{flex: 1}}/>
+              <View style={{alignItems: "flex-end"}}>
+                <LiveTimeAgo style={{fontSize: 12}} date={snap_post.created_at.toDate()}/>
+              </View>
+            </View>
+          </TouchableOpacity>
+          {snap_post.caption && <Text numberOfLines={3} style={[styles.image_text_1, styles.image_text, {width: "100%", marginTop: 4}]}>{snap_post.caption}</Text>}
+        </View>
+        <View>
+          <FastImage source={{uri:snap_post.image_url}} style={{width: $.const.image_sizes["1"].width, height: $.const.image_sizes["1"].height}} onLoad={on_image_load}/>
+          {is_image_loaded && _.isString(snap_post.emoji_char) && <EmojiOverlay  emoji_char={snap_post.emoji_char} scaling_factor={number_columns}  on_press={on_press_emoji}/>}
+        </View>
+        <View style={{flexDirection: "row", alignItems: "center", marginVertical: 8}}>
+          <TouchableOpacity onPress={on_press_like_inner} style={{alignItems: "center", marginLeft: 10}} activeOpacity={0.8}>
+            <Animated.View style={{ transform: [{ scale: anim.current }] }}>
+              <Text><MaterialCommunityIcons name={snap_post.is_liked ? "heart" : "heart-outline"} size={32} style={snap_post.is_liked? {color: "red"} : {color: colors.outline}}/></Text>
+            </Animated.View>
+          </TouchableOpacity>
+          {like_count > 0 && (
+            <TouchableOpacity style={{flexDirection: "row", alignItems: "center", padding: 10, width: 64}} onPress={on_press_likes_inner}>
+              <Text variant="titleSmall">{like_count} </Text>
+              {like_count === 1 ? <Text>like</Text> : <Text>likes</Text>}
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={on_press_comment_inner} style={{alignItems: "center", marginLeft: 20}} activeOpacity={0.8}>
+            <Text><MaterialCommunityIcons name={"comment-outline"} size={32} color={colors.outline}/></Text>
+          </TouchableOpacity>
+          {comment_count > 0 && (
+            <TouchableOpacity style={{flexDirection: "row", alignItems: "center", padding: 10}} onPress={on_press_comments_inner}>
+              <Text variant="titleSmall">{comment_count} </Text>
+              {comment_count === 1 ? <Text>comment</Text> : <Text>comments</Text>}
+            </TouchableOpacity>
+          )}
+        </View>
+        <Divider/>
+      </View>
+    );
+  }
 
   return (
     <View>
@@ -116,14 +170,14 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
           <Fragment>
             <View style={{marginLeft: 10, marginTop: 10}}>
               <LiveTimeAgo style={[styles.image_text_1, styles.image_text]} date={snap_post.created_at.toDate()}/>
-              {snap_post.location && <TouchableOpacity onPress={on_press_location}><Text numberOfLines={1} style={[{width: "65%"}, styles.image_text_place_1, styles.image_text]}>{snap_post.location.name}</Text></TouchableOpacity>}
+              {snap_post.location && <TouchableOpacity onPress={on_press_location}><Text numberOfLines={1} style={[{width: "60%"}, styles.image_text_place_1, styles.image_text]}>{snap_post.location.name}</Text></TouchableOpacity>}
             </View>
             
             <TapDetector on_single_tap={on_press_post} on_double_tap={on_press_like_inner}><View style={{flex:1}}/></TapDetector>
 
             <View style={{flexDirection: "row", margin: 8}}>
               <View style={{flex: 1, justifyContent: "flex-end", marginRight: 4}}>
-                {(screen !== "HistoryScreen") && (
+                {(screen !== "UserScreen") && (
                   <TouchableOpacity onPress={on_press_user} activeOpacity={0.8}>
                     <View style={{flexDirection: "row", alignItems: "center"}}>
                       <View style={[{borderWidth: 1, borderColor: "white", marginRight: 4, borderRadius: 25}]}>
@@ -159,12 +213,12 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
           <Fragment>
             <View style={{marginLeft: 10, marginTop: 10}}>
               <LiveTimeAgo style={[styles.image_text_2, styles.image_text]} date={snap_post.created_at.toDate()}/>
-              {snap_post.location && <TouchableOpacity onPress={on_press_location}><Text style={[{width: "65%"}, styles.image_text_2, styles.image_text]} numberOfLines={1}>{snap_post.location.name}</Text></TouchableOpacity>}
+              {snap_post.location && <TouchableOpacity onPress={on_press_location}><Text style={[{width: "60%"}, styles.image_text_2, styles.image_text]} numberOfLines={1}>{snap_post.location.name}</Text></TouchableOpacity>}
             </View>
             <TapDetector on_single_tap={on_press_post} on_double_tap={on_press_like_inner}><View style={{flex:1}}/></TapDetector>
             <View style={{flexDirection: "row", margin: 8}}>
               <View style={{flex: 1, justifyContent: "flex-end", marginRight: 4}}>
-                {(screen !== "HistoryScreen") && (
+                {(screen !== "UserScreen") && (
                   <TouchableOpacity onPress={on_press_user} activeOpacity={0.8}>
                     <View style={{flexDirection: "row", alignItems: "center"}}>
                       <View style={[{borderWidth: 1, borderColor: "white", marginRight: 4, borderRadius: 15}]}>
@@ -203,7 +257,7 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
               {snap_post.location && <TouchableOpacity onPress={on_press_location}><MaterialCommunityIcons name={"map-marker"} size={16} color={colors.text}/></TouchableOpacity>}
             </View>
             <TapDetector on_single_tap={on_press_post} on_double_tap={on_press_like_inner}><View style={{flex:1}}/></TapDetector>
-            {(screen !== "HistoryScreen") && (
+            {(screen !== "UserScreen") && (
               <TouchableOpacity onPress={on_press_user} activeOpacity={0.8} style={{padding: 5, paddingBottom: 0}}>
                 <Text style={[styles.image_text_3_username, styles.image_text]}>{snap_user.username}</Text>
               </TouchableOpacity>
@@ -219,7 +273,7 @@ const Post = function({id, navigation, number_columns, screen, on_press_comment,
               {snap_post.location && <TouchableOpacity onPress={on_press_location}><MaterialCommunityIcons name={"map-marker"} size={16} color={colors.text}/></TouchableOpacity>}
             </View>
              <TapDetector on_single_tap={on_press_post} on_double_tap={on_press_like_inner}><View style={{flex:1}}/></TapDetector>
-            {(screen !== "HistoryScreen") && (
+            {(screen !== "UserScreen") && (
               <TouchableOpacity onPress={on_press_user} activeOpacity={0.8} style={{padding: 4}}>
                 <Text style={[styles.image_text_4_username, styles.image_text]}>{snap_user.username}</Text>
               </TouchableOpacity>

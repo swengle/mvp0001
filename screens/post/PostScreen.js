@@ -3,7 +3,7 @@ import $ from "../../setup";
 import _ from "underscore";
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "react-native-toast-notifications";
-import { FlatList, KeyboardAvoidingView, Platform, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, RefreshControl, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Appbar, Button, TextInput, useTheme } from "react-native-paper";
 import firestore from "../../firestore/firestore";
@@ -15,7 +15,7 @@ import useGlobalCache from "../../hooks/useGlobalCache";
 import NotFound from "../../components/NotFound";
 
 const FETCH_SIZE = 16;
-const SUBCOMMENT_FETCH_SIZE = 1;
+const REPLIES_FETCH_SIZE = 2;
 
 const Header = function({ id, navigation, ref_comment_input, on_press_comment, on_press_comments }) {
   const { dark } = useTheme();
@@ -37,20 +37,19 @@ const Header = function({ id, navigation, ref_comment_input, on_press_comment, o
         </View>
       )}
       
-      {snap_post && <Post id={post.id} navigation={navigation} number_columns={1} on_press_comment={on_press_comment} on_press_comments={on_press_comments}/>}
+      {snap_post && <Post id={post.id} navigation={navigation} on_press_comment={on_press_comment} on_press_comments={on_press_comments} number_columns="1" screen="PostScreen"/>}
     </View>
   );
 };
 
 const PostScreen = function({navigation, route}) {
   const toast = useToast();
-  const [is_more_menu_visible, set_is_more_menu_visible] = useState(false);
   const [comment_text, set_comment_text] = useState("");
   const [is_comment_text_good, set_is_comment_text_good] = useState(false);
   const ref_list = useRef();
   const ref_comment_input = useRef();
   const [is_sending_comment, set_is_sending_comment] = useState(false);
-  let input_focus_target;
+  const { colors } = useTheme();
   
   let id;
   if (route.params && route.params.id) {
@@ -67,13 +66,13 @@ const PostScreen = function({navigation, route}) {
   const post = cache_get(id);
   const snap_post = cache_get_snapshot(id);
   
-  const load_post = async function() {
-    const users = await firestore.fetch_posts([id]);
-    cache_set_posts(users);
+  const fetch_post = async function() {
+    const posts = await firestore.fetch_posts([id]);
+    cache_set_posts(posts);
   };
 
   useEffect(() => {
-    load_post();
+    fetch_post();
     refresh();
   }, []);
   
@@ -82,7 +81,7 @@ const PostScreen = function({navigation, route}) {
       return;
     }
 
-    const query_args = [collectionGroup($.db, "reactions"), where("parent_id", "==", post.id), where("kind", "==", "comment"), orderBy("created_at", "desc"), limit(FETCH_SIZE + 1)];
+    const query_args = [collectionGroup($.db, "comments"), where("parent_id", "==", post.id), orderBy("created_at", "desc"), limit(FETCH_SIZE + 1)];
     if (fetcher.default.cursor) {
       query_args.push(startAfter(fetcher.cursor));
     }
@@ -102,7 +101,7 @@ const PostScreen = function({navigation, route}) {
         docs = _.initial(docs);
         fetcher.default.cursor = _.last(docs);
       } else {
-        fetcher.default.cursor = null;
+        fetcher.default.cursor = undefined;
       }
       
       let data;
@@ -134,62 +133,69 @@ const PostScreen = function({navigation, route}) {
       fetcher.default.is_loading_more ? fetcher.default.is_loading_more = false : fetcher.default.is_refreshing = false;
     }
   };
-  
-  /*
-  const fetch_subcomments = async function(parent_id, index) {
-    if (!cache_data.fetchers[parent_id]) {
-      cache_data.fetchers[parent_id] = {};
+
+  const fetch_replies = async function(parent_id, index) {
+    if (!fetcher[parent_id]) {
+      fetcher[parent_id] = {};
     }
-    if (cache_data.fetchers[parent_id].is_refreshing || cache_data.fetchers[parent_id].is_loading_more) {
+    if (fetcher[parent_id].is_refreshing || fetcher[parent_id].is_loading_more) {
       return;
     }
 
-    const query_args = [collectionGroup($.db, "reactions"), where("parent_id", "==", parent_id), where("kind", "==", "comment"), orderBy("created_at", "desc"), limit(SUBCOMMENT_FETCH_SIZE+1)];
-    if (cache_data.fetchers[parent_id].cursor) {
-      query_args.push(startAfter(cache_data.fetchers[parent_id].cursor));
+    const query_args = [collectionGroup($.db, "comments"), where("parent_id", "==", parent_id), orderBy("created_at", "desc"), limit(REPLIES_FETCH_SIZE + 1)];
+    if (fetcher[parent_id].cursor_comment_id) {
+      const comment = cache_get(fetcher[parent_id].cursor_comment_id);
+      if (comment) {
+        query_args.push(startAfter(comment.created_at)); 
+      }
     }
     const q_comment = query(...query_args);
-    cache_data.fetchers[parent_id].cursor ? cache_data.fetchers[parent_id].is_loading_more = true : cache_data.fetchers[parent_id].is_refreshing = true;
+    fetcher[parent_id].cursor_comment_id ? fetcher[parent_id].is_loading_more = true : fetcher[parent_id].is_refreshing = true;
     const comments = [];
     try {
       const snap_comments = await getDocs(q_comment);
-      
       let docs = snap_comments.docs;
-      if (_.size(docs) === (SUBCOMMENT_FETCH_SIZE + 1)) {
+      const size = _.size(docs);
+      
+      if (size === (REPLIES_FETCH_SIZE + 1)) {
         docs = _.initial(docs);
-        cache_data.fetchers[parent_id].cursor = _.last(docs);
+        fetcher[parent_id].cursor_comment_id = (_.last(docs)).data().id;
       } else {
-        cache_data.fetchers[parent_id].cursor = null;
+        fetcher[parent_id].cursor_comment_id = undefined;
       }
       
-      if (_.size(docs) === 0) {
-        return;
+      let data;
+      if (size > 0) {
+        _.each(docs, function(doc_comment) {
+          comments.push(doc_comment.data());
+        });
+        await firestore.fetch_comment_dependencies(comments);
+        data = cache_set_comments(comments);
+        fetcher.default.data.splice(index || 0 , 0, ...data);
       }
-      
-      _.each(docs, function(doc_comment) {
-        comments.push(doc_comment.data());
-      });
-      
-      await firestore.fetch_comment_dependencies(comments);
-      _.each(comments, function(comment) {
-        cache_set(comment);
-      });
-      
-      cache_sync(_.isNumber(index) ? index + 1 : 0);
-
-      cache_data.fetchers[parent_id].is_first_refresh = false;
+      fetcher[parent_id].is_refreshed = true;
+      fetcher[parent_id].is_replies_open = true;
     } catch (e) {
       $.logger.error(e);
-      cache_data.fetchers[parent_id].is_loading_more ? cache_data.fetchers[parent_id].is_load_more_error = true : cache_data.fetchers[parent_id].is_refresh_error = true;
+      fetcher[parent_id].is_loading_more ? fetcher[parent_id].is_load_more_error = true : fetcher[parent_id].is_refresh_error = true;
       $.display_error(toast, new Error("Failed to load users."));
     } finally {
-      cache_data.fetchers[parent_id].is_loading_more ? cache_data.fetchers[parent_id].is_loading_more = false : cache_data.fetchers[parent_id].is_refreshing = false;
+      fetcher[parent_id].is_loading_more ? fetcher[parent_id].is_loading_more = false : fetcher[parent_id].is_refreshing = false;
     }
   };
-  */
   
   const refresh = function() {
     fetcher.default.cursor = null;
+    const keys_to_delete = [];
+    _.each(fetcher, function(value, key) {
+      if (key !== "id" && key !== "default") {
+        keys_to_delete.push(key);
+      }
+    });
+    _.each(keys_to_delete, function(key) {
+      delete fetcher[key];
+    });
+    fetch_post();
     fetch();
   };
   
@@ -209,11 +215,7 @@ const PostScreen = function({navigation, route}) {
   const on_press_back = function() {
     navigation.goBack();
   };
-  
-  const on_dismiss_more_menu = function() {
-    set_is_more_menu_visible(false);
-  };
-  
+
   const on_change_comment_text = function(text) {
     set_comment_text(text);
     if (text.trim().length > 0) {
@@ -224,30 +226,38 @@ const PostScreen = function({navigation, route}) {
   };
   
   const on_press_send = async function() {
-    const params = {
-      parent_user_id: post.uid,
-      parent_id: post.id,
-      parent_kind: "post",
-      text: comment_text.trim()
-    };
-    if (fetcher.default.active_comment_id) {
-      params.parent_id = fetcher.default.active_comment_id;
-      params.parent_kind = "reaction";
-    }
     set_is_sending_comment(true);
     try {
-      const target_index = _.isNumber(fetcher.default.active_comment_index) ? (fetcher.default.active_comment_index + 1) : 0;
-      const new_comment = await firestore.create_comment(params.parent_user_id, params.parent_id, params.parent_kind, params.text);
-      (post && _.isNumber(post.comment_count)) ? post.comment_count++ : post.comment_count = 1;
+      const target_index = _.isNumber(fetcher.default.target_index) ? fetcher.default.target_index : 0;
+      const new_comment = await firestore.create_comment((fetcher.default.active_comment_id ? true : false), (fetcher.default.active_comment_id ? fetcher.default.active_comment_id : post.id), comment_text.trim());
+      if (fetcher.default.active_comment_id) {
+        const comment = cache_get(fetcher.default.active_comment_id);
+        if (comment) {
+          (comment && _.isNumber(comment.comment_count)) ? comment.comment_count++ : comment.comment_count = 1; 
+        }
+      } else {
+        (post && _.isNumber(post.comment_count)) ? post.comment_count++ : post.comment_count = 1; 
+      }
+      
       cache_set_comments(new_comment);
       fetcher.default.data .splice(target_index || 0 , 0, {id: new_comment.id});
       set_comment_text("");
       set_is_comment_text_good(false);
       ref_comment_input.current.blur();
       scroll_to_index(target_index, 0.3, 400);
+  
+      let f = fetcher[fetcher.default.active_comment_id ? fetcher.default.active_comment_id : "default"];
+      if (!f) {
+        f = fetcher[fetcher.default.active_comment_id ? fetcher.default.active_comment_id : "default"] = {
+          is_refreshed: true,
+          is_replies_open: true,
+          cursor_comment_id: new_comment.id,
+          cursor: new_comment
+        };
+      }
     } catch (e) {
       $.logger.error(e);
-      $.display_error(toast, new Error("Failed to send comment. Try again."));
+      $.display_error(toast, new Error("Something went wrong!."));
     } finally {
       set_is_sending_comment(false);
     }
@@ -255,15 +265,15 @@ const PostScreen = function({navigation, route}) {
   
   const on_press_comment = function() {
     delete fetcher.default.active_comment_id;
-    input_focus_target = 0;
+    fetcher.default.input_focus_target = 0;
     ref_comment_input.current.focus();
   };
   
   const on_press_reply = function(id, index) {
-    input_focus_target = index;
+    fetcher.default.input_focus_target = index-1;
     ref_comment_input.current.focus();
     fetcher.default.active_comment_id = id;
-    fetcher.default.active_comment_index = index;
+    fetcher.default.target_index = index;
   };
   
   const scroll_to_index = function(index, view_position, delay) {
@@ -286,37 +296,47 @@ const PostScreen = function({navigation, route}) {
     scroll_to_index(0);
   };
   
-  const on_press_replies = function(id, index) {
-    //cache_data.active_comment_index = index;
-    //fetch_subcomments(id, index);
+  const on_press_replies = function(id, target_index) {
+    const child_fetcher = fetcher[id];
+    if (child_fetcher && !child_fetcher.is_replies_open && child_fetcher.is_refreshed) {
+      child_fetcher.is_replies_open = true;
+      return;
+    }
+    fetcher.default.target_index = target_index;
+    fetch_replies(id, target_index);
   };
   
-  const on_press_more = function(parent_id, index) {
-    //fetch_subcomments(parent_id, index);
+  const on_press_more = function(parent_id, target_index) {
+    fetch_replies(parent_id, target_index);
   };
   
   const render_comment = function(row) {
-    if (row.item === "nothing") {
-      return <View style={{height: 100}}/>;
+    if (row.item === "empty_row") {
+      return <View style={{height: 20}}/>;
     }
-
-    return <Comment id={ row.item.id } index={ row.index } on_press_reply={on_press_reply} on_press_replies={on_press_replies} is_being_commented_on={snap_fetcher.default.active_comment_id === row.item} navigation={navigation} state={snap_fetcher[row.item.id]} on_press_more={(snap_fetcher[row.item.id] && snap_fetcher[row.item.id].cursor) ? on_press_more : undefined}/>;
+    const comment = cache_get(row.item.id);
+    if (!comment) {
+      return null;
+    }
+    return <Comment fetcher={fetcher} snap_child_fetcher={snap_fetcher[comment.id]} snap_parent_fetcher={snap_fetcher[comment.parent_id]} child_fetcher={fetcher[comment.id]} parent_fetcher={fetcher[comment.parent_id]}  id={ comment.id } index={ row.index } on_press_reply={on_press_reply} on_press_replies={on_press_replies} is_being_commented_on={snap_fetcher.default.active_comment_id === row.item.id} navigation={navigation} on_press_more={on_press_more} />;
   };
   
   const on_focus = function() {
     fetcher.default.is_commentbox_has_focus = true;
-    scroll_to_index(input_focus_target || 0, 0.5, 400);
+    scroll_to_index(fetcher.default.input_focus_target || 0, 0.5, 400); 
   };
   
   const on_blur = function() {
     delete fetcher.default.active_comment_id;
-    delete fetcher.default.active_comment_index;
+    delete fetcher.default.target_index;
     fetcher.default.is_commentbox_has_focus = false;
   };
   
   if (!post) {
     return <NotFound on_press_back={on_press_back}/>;
   }
+  
+  _.size(snap_fetcher.default.data);
   
   return (
     <SafeAreaView style ={{flex: 1}} edges={['right', 'top', 'left']}>
@@ -326,17 +346,25 @@ const PostScreen = function({navigation, route}) {
       </Appbar.Header>
       <KeyboardAvoidingView behavior={Platform.OS == 'ios' ? 'padding' : undefined} style={{flex: 1}}>
         <FlatList
-          contentContainerStyle={{paddingBottom: 100}}
+          contentContainerStyle={{paddingBottom: 64}}
           ref={ref_list}
           keyboardShouldPersistTaps="never"
           style={{flex: 1}}
-          data={_.size(fetcher.default.data) === 0 ? ["nothing"] : fetcher.default.data}
+          data={_.size(fetcher.default.data) ? fetcher.default.data : ["empty_row"]}
           renderItem={render_comment}
           keyExtractor = { item => _.isString(item) ? item : item.id }
           ListHeaderComponent = <Header id={id} navigation={navigation} on_press_comment={on_press_comment} on_press_comments={on_press_comments} ref_list={ref_list} is_error={null} on_press_retry={on_press_retry}/>
           ListFooterComponent = <ListFooter is_error={fetcher.default.is_load_more_error} is_loading_more={fetcher.default.is_loading_more} on_press_retry={on_press_retry}/>
           onEndReached={fetch_more}
           removeClippedSubviews={true}
+          refreshControl = {
+            <RefreshControl
+              refreshing={snap_fetcher.default.is_refreshing}
+              onRefresh={refresh}
+              tintColor={colors.secondary}
+              colors={[colors.secondary]}
+            />
+          }
         />
         {_.isObject(snap_post)  && (
           <View>

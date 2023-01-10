@@ -1,26 +1,55 @@
 "use strict";
 import $ from "../setup";
 import _ from "underscore";
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useRef } from "react";
 import { Animated, View } from 'react-native';
-import { Avatar, HelperText, Text, Surface, useTheme } from "react-native-paper";
+import { ActivityIndicator, Avatar, HelperText, Text, Surface, useTheme } from "react-native-paper";
 import useGlobalCache from "../hooks/useGlobalCache";
 import firestore from "../firestore/firestore";
 import TouchableOpacity  from "../components/TouchableOpacity";
 import LiveTimeAgo from "../components/LiveTimeAgo";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
-const More = function({id, on_press_more, index}) {
+const More = function({id, on_press_more, index, is_loading_more}) {
   const comment = useGlobalCache.cache_get(id);
 
   const on_press_more_inner = function() {
-    _.isFunction(on_press_more) && on_press_more(id, index);
+    _.isFunction(on_press_more) && on_press_more(comment.parent_id, index + 1);
   };
   
-  return <TouchableOpacity onPress={on_press_more_inner}><View style={{alignItems: "center", marginLeft: comment.depth * 20}}><HelperText>More replies</HelperText></View></TouchableOpacity>;
+  if (is_loading_more) {
+    return (
+      <View style={{paddingTop: 10, paddingBottom: 10, alignItems: "center", marginLeft: comment.depth * 20}}>
+        <ActivityIndicator size={14}/>
+      </View>
+    );
+  }
+  
+  return (
+    <TouchableOpacity onPress={on_press_more_inner}>
+      <HelperText>More replies</HelperText>
+    </TouchableOpacity>
+  );
 };
 
-const Comment = function({id, index, navigation, on_press_like, on_press_reply, on_press_likes, on_press_replies, is_being_commented_on, state, on_press_more}) {
+const HideReplies = function({is_loading_more, parent_fetcher}) {
+  
+  const on_press_hide_replies = function() {
+    parent_fetcher.is_replies_open = false;
+  };
+  
+  if (is_loading_more) {
+    return null;
+  }
+  
+  return (
+    <TouchableOpacity onPress={on_press_hide_replies}>
+      <HelperText>Hide replies</HelperText>
+    </TouchableOpacity>
+  );
+};
+
+const Comment = function({fetcher, snap_child_fetcher, snap_parent_fetcher, child_fetcher, parent_fetcher, id, index, navigation, on_press_like, on_press_reply, on_press_likes, on_press_replies, is_being_commented_on, on_press_more}) {
   const { colors } = useTheme();
   const anim = useRef(new Animated.Value(1));
   const { cache_get, cache_get_snapshot  } = useGlobalCache();
@@ -41,7 +70,7 @@ const Comment = function({id, index, navigation, on_press_like, on_press_reply, 
   };
   
   const on_press_reply_inner = function() {
-    _.isFunction(on_press_reply) && on_press_reply(comment.id, index);
+    _.isFunction(on_press_reply) && on_press_reply(comment.id, index + 1);
   };
   
   const on_press_like_inner = async function() {
@@ -65,7 +94,7 @@ const Comment = function({id, index, navigation, on_press_like, on_press_reply, 
       _.isNumber(comment.like_count) ? comment.like_count++ : comment.like_count = 1;
       comment.is_liked = true;
       try {
-        await firestore.create_like(comment.uid, comment.id, "comment");
+        await firestore.create_like(true, comment.id);
       } catch (e) {
         $.logger.error(e);
         comment.like_count--;
@@ -90,8 +119,30 @@ const Comment = function({id, index, navigation, on_press_like, on_press_reply, 
   };
   
   const on_press_replies_inner = function() {
-    _.isFunction(on_press_replies) && on_press_replies(id, index);
+    if (fetcher.default.hidden_path_map && fetcher.default.hidden_path_map[comment.path]) {
+      delete fetcher.default.hidden_path_map[comment.path];
+    }
+    _.isFunction(on_press_replies) && on_press_replies(id, index + 1);
   };
+  
+  const on_press_hide_replies_inner = function() {
+    child_fetcher.is_replies_open = false;
+    if (!fetcher.default.hidden_path_map) {
+      fetcher.default.hidden_path_map = {};
+    }
+    fetcher.default.hidden_path_map[comment.path] = true;
+  };
+  
+  let is_path_visible = true;
+  _.each(fetcher.default.hidden_path_map && _.keys(fetcher.default.hidden_path_map), function(path) {
+    if ((comment.path.length > path.length) && comment.path.indexOf(path) !== -1) {
+      is_path_visible = false;
+    }
+  });
+  
+  if (!is_path_visible) {
+    return null;
+  }
   
   const like_count = _.isNumber(comment_snap.like_count) ? comment_snap.like_count : 0;
   const comment_count = _.isNumber(comment_snap.comment_count) ? comment_snap.comment_count : 0;
@@ -113,7 +164,7 @@ const Comment = function({id, index, navigation, on_press_like, on_press_reply, 
       </View>
       
       
-      <View style={{flexDirection: "row", marginTop: 4,  paddingLeft: 38, alignItems: "center"}}>
+      <View style={{flexDirection: "row", marginTop: 4, paddingLeft: 38, alignItems: "center"}}>
         <LiveTimeAgo style={{fontSize: 12}} date={comment_snap.created_at.toDate()} style={{marginRight: 16, fontSize: 12, color: colors.outline, width: 60}}/>
         <TouchableOpacity onPress={on_press_like_inner}>
           <Animated.View style={{ transform: [{ scale: anim.current }] }}>
@@ -129,20 +180,40 @@ const Comment = function({id, index, navigation, on_press_like, on_press_reply, 
         <TouchableOpacity onPress={on_press_reply_inner}>
           <MaterialCommunityIcons name={"comment-outline"} size={20} style={{color: colors.outline}}/>
         </TouchableOpacity>
-        {(!state && comment_count > 0) && (
-          <TouchableOpacity onPress={on_press_replies_inner}>
-            <Text style={{fontSize: 12, color: colors.outline}}>  {comment_count} {comment_count === 1 ? "reply" : "replies"}</Text>
-          </TouchableOpacity>
+        {(comment_count > 0) && (
+          <Fragment>
+            {snap_child_fetcher && snap_child_fetcher.is_refreshing && <ActivityIndicator style={{marginLeft: 16}} size={14}/>}
+            {(!snap_child_fetcher || (!snap_child_fetcher.is_refreshing && !snap_child_fetcher.is_replies_open)) && <TouchableOpacity onPress={on_press_replies_inner} style={{marginLeft: 4}}><Text style={{fontSize: 12, color: colors.outline}}>  {comment_count} {comment_count === 1 ? "reply" : "replies"}</Text></TouchableOpacity>}
+            {(snap_child_fetcher && snap_child_fetcher.is_replies_open) && <TouchableOpacity onPress={on_press_hide_replies_inner} style={{marginLeft: 4}}><Text style={{fontSize: 12, color: colors.outline}}> {comment_count === 1 ? "Hide reply" : "Hide replies"}</Text></TouchableOpacity>}
+          </Fragment>
         )}
       </View>
     </View>
   );
   
   if (is_being_commented_on) {
-    return <Fragment><Surface elevation={4}>{inner}</Surface>{on_press_more ? <More id={id} on_press_more={on_press_more} index={index}/> : null}</Fragment>;
+    return (
+      <Fragment>
+        <Surface elevation={4}>
+          {inner}
+        </Surface>
+        <View style={{flexDirection: "row", paddingLeft: 38, paddingRight: 10, marginLeft: comment_snap.depth * 20}}>
+          {snap_parent_fetcher && snap_parent_fetcher.cursor_comment_id === id && <More id={id} on_press_more={on_press_more} index={index} is_loading_more={snap_parent_fetcher.is_loading_more}/>}
+          {false && snap_parent_fetcher && snap_parent_fetcher.cursor_comment_id === id && snap_parent_fetcher.is_replies_open && <HideReplies is_loading_more={snap_parent_fetcher.is_loading_more} parent_fetcher={parent_fetcher}/>}
+        </View>
+      </Fragment>
+    );
   }
-
-  return <Fragment>{inner}{on_press_more ? <More id={id} on_press_more={on_press_more} index={index}/> : null}</Fragment>;
+  
+  return (
+    <Fragment>
+      {inner}
+      <View style={{flexDirection: "row", paddingLeft: 38, paddingRight: 10, marginLeft: comment_snap.depth * 20}}>
+        {snap_parent_fetcher && snap_parent_fetcher.cursor_comment_id === id && <More id={id} on_press_more={on_press_more} index={index} is_loading_more={snap_parent_fetcher.is_loading_more}/>}
+        {false && snap_parent_fetcher && snap_parent_fetcher.cursor_comment_id === id && snap_parent_fetcher.is_replies_open && <HideReplies is_loading_more={snap_parent_fetcher.is_loading_more} parent_fetcher={parent_fetcher}/>}
+      </View>
+    </Fragment>
+  );
 };
 
 

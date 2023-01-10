@@ -94,10 +94,11 @@ const UserStackNavigator = createNavigator();
 const UserStack = function() {
   return (
     <UserStackNavigator.Navigator screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal', gestureResponseDistance: $.const.width }}>
+      <UserStackNavigator.Screen name="PostListScreen" component={PostListScreen} options={{headerShown: false}} initialParams={{ screen: "UserScreen" }}/>
+      
       <UserStackNavigator.Screen name="UserListScreen" component={UserListScreen} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="SettingsStack" component={SettingsStack} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="ContactsStack" component={ContactsStack} options={{headerShown: false}}/>
-      <UserStackNavigator.Screen name="PostListScreen" component={PostListScreen} options={{headerShown: false}}/>
       <UserStackNavigator.Screen name="PostScreen" component={PostScreen} options={{headerShown: false}}/>
     </UserStackNavigator.Navigator>
   );

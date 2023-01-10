@@ -61,7 +61,7 @@ const ContactsScreen = function({ navigation }) {
             id: "is_users_header",
             is_users_header: true
           });
-          response.data.splice(response.user_count+1, 0, {
+          response.data.splice(response.user_count + 1, 0, {
             id: "is_contacts_header",
             is_contacts_header: true
           });
