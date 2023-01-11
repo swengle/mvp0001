@@ -1,6 +1,6 @@
 "use strict";
 import _ from "underscore";
-import { collection, collectionGroup, deleteField, doc, documentId, getDoc, getDocs, increment, query, runTransaction, setDoc, updateDoc, where, Timestamp } from "firebase/firestore";
+import { arrayUnion, arrayRemove, collection, collectionGroup, deleteField, doc, documentId, getDoc, getDocs, increment, query, runTransaction, setDoc, updateDoc, where, Timestamp } from "firebase/firestore";
 import { getHex } from "pastel-color";
 import useGlobalCache from "../hooks/useGlobalCache";
 
@@ -296,19 +296,23 @@ const firestore = {
 
       await transaction.set(like_ref, like);
       
-      // alerts are best effort, will probably movo to a trigger
-      const activity = {
-        id: $.session.uid + "_" + like.parent_id,
-        created_at: now,
-        group: "like_" + like.parent_id + "_" + like.updated_at.toDate().toISOString().split("T")[0],
-        verb: "like",
-        target: like.parent_id,
-        actor: like.uid
-      };
-      const like_alert_ref = doc(db, "users/" + parent.uid + "/alerts", activity.group);
-      const alerts_updates = { updated_at: now };
-      alerts_updates["activities." + activity.id] = activity;
-      await setDoc(like_alert_ref, alerts_updates, {merge: true});
+      // alerts are best effort, will probably move to a trigger
+      _.delay(async function() {
+        if (like.parent_user_id === $.session.uid) {
+          return;
+        }
+        const activity = {
+          id: $.session.uid + "_" + like.parent_id,
+          created_at: now,
+          group: "like_" + like.parent_id + "_" + like.updated_at.toDate().toISOString().split("T")[0],
+          verb: "like",
+          target: like.parent_id,
+          actor: like.uid
+        };
+        const like_alert_ref = doc(db, "users/" + parent.uid + "/alerts", activity.group);
+        const alerts_updates = { updated_at: activity.created_at, activities: arrayUnion(activity) };
+        await setDoc(like_alert_ref, alerts_updates, {merge: true});
+      }, 1);
     });
   },
   delete_like: async function(id) {
@@ -333,10 +337,36 @@ const firestore = {
           }
           await transaction.update(like_ref, { updated_at: Timestamp.now(), is_liked: deleteField(), rev: increment(1) });
           
-          const like_alert_ref = doc(db, "users/" + like.parent_user_id + "/alerts", "like_" + like.parent_id + "_" + like.updated_at.toDate().toISOString().split("T")[0]);
-          const alerts_updates = {};
-          alerts_updates["activities." + like.id] = deleteField();
-          await setDoc(like_alert_ref, alerts_updates, {merge: true});
+          _.delay(async function() {
+            if (like.parent_user_id === $.session.uid) {
+              return;
+            }
+            const alert_ref = doc(db, "users/" + like.parent_user_id + "/alerts", "like_" + like.parent_id + "_" + like.updated_at.toDate().toISOString().split("T")[0]);
+            await runTransaction(db, async (transaction2) => {
+              const alert_doc_snap = await transaction2.get(alert_ref); 
+              if (alert_doc_snap.exists()) {
+                const alert_group = alert_doc_snap.data();
+                const activity_id = $.session.uid + "_" + like.parent_id;
+                
+                const activity = _.find(alert_group.activities, function(a) {
+                  return a.id === activity_id;
+                });
+                
+                if (activity) {
+                  const size = _.size(alert_group.activities);
+                  if (size < 2) {
+                    await transaction2.delete(alert_ref);
+                  } else {
+                    const updates = {activities: arrayRemove(activity)};
+                    if (activity === _.last(alert_group.activities)) {
+                      updates.updated_at = alert_group.activities[size-2].created_at;
+                    }
+                    await transaction2.update(alert_ref, updates); 
+                  }
+                }
+              }
+            });
+          }, 1);
         }
       }
     });
@@ -386,18 +416,22 @@ const firestore = {
       
       
       // alerts are best effort, will probably move to a trigger
-      const activity = {
-        id: comment.id,
-        created_at: now,
-        group: "comment_" + comment.parent_id + "_" + comment.created_at.toDate().toISOString().split("T")[0],
-        verb: "comment",
-        target: parent.id,
-        actor: comment.uid
-      };
-      const comment_alert_ref = doc(db, "users/" + parent.uid + "/alerts", activity.group);
-      const alerts_updates = { updated_at: now };
-      alerts_updates["activities." + activity.id] = activity;
-      await setDoc(comment_alert_ref, alerts_updates, {merge: true});
+      _.delay(async function() {
+        if (comment.parent_user_id === $.session.uid) {
+          return;
+        }
+        const activity = {
+          id: comment.id,
+          created_at: now,
+          group: "comment_" + comment.parent_id + "_" + comment.created_at.toDate().toISOString().split("T")[0],
+          verb: is_reply ? "reply" : "comment",
+          target: parent.id,
+          actor: comment.uid
+        };
+        const comment_alert_ref = doc(db, "users/" + parent.uid + "/alerts", activity.group);
+        const alerts_updates = { updated_at: activity.created_at, activities: arrayUnion(activity) };
+        await setDoc(comment_alert_ref, alerts_updates, {merge: true});
+      }, 1);
     });
 
     return comment;
@@ -422,6 +456,41 @@ const firestore = {
           await transaction.update(post_ref, parent_updates);
         }
         await transaction.delete(comment_ref);
+        
+        
+        _.delay(async function() {
+          if (comment.parent_user_id === $.session.uid) {
+            return;
+          }
+          const alert_ref = doc(db, "users/" + comment.uid + "/alerts", "comment_" + comment.parent_id + "_" + comment.created_at_at.toDate().toISOString().split("T")[0]);
+          await runTransaction(db, async (transaction2) => {
+            const alert_doc_snap = await transaction2.get(alert_ref); 
+            if (alert_doc_snap.exists()) {
+              const alert_group = alert_doc_snap.data();
+              const activity_id = comment.id;
+              
+              const activity = _.find(alert_group.activities, function(a) {
+                return a.id === activity_id;
+              });
+              
+              if (activity) {
+                const size = _.size(alert_group.activities);
+                if (size < 2) {
+                  await transaction2.delete(alert_ref);
+                } else {
+                  const updates = {activities: arrayRemove(activity)};
+                  if (activity === _.last(alert_group.activities)) {
+                    updates.updated_at = alert_group.activities[size-2].created_at;
+                  }
+                  await transaction2.update(alert_ref, updates); 
+                }
+              }
+            }
+          });
+        }, 1);
+        
+        
+        
       }
     });
   },
@@ -566,6 +635,9 @@ const firestore = {
     });
   },
   update_relationship: async function(params) {
+    if (params.id === $.session.uid) {
+      return;
+    }
     const current_user_ref = doc(db, "users", $.session.uid);
     const user_ref = doc(db, "users", params.id);
     const relationship_doc_ref = doc(db, "users/" + $.session.uid + "/relationships", params.id);
@@ -624,9 +696,10 @@ const firestore = {
       if (params.action === "follow") {
         if (!relationship || relationship.status === "none") {
           result.outgoing_status = user.is_account_public ? "follow" : "request";
+          const now = Timestamp.now();
           if (relationship) {
             await transaction.update(relationship_doc_ref, {
-              updated_at: Timestamp.now(),
+              updated_at: now,
               status: result.outgoing_status,
               rev: increment(1)
             });
@@ -635,12 +708,12 @@ const firestore = {
             await transaction.set(relationship_doc_ref, {
               id: current_user.id,
               uid: user.id,
-              updated_at: Timestamp.now(),
+              updated_at: now,
               status: result.outgoing_status,
               rev: 0
             });
           }
-          const current_user_updates = { rev: increment(1), updated_at: Timestamp.now() };
+          const current_user_updates = { rev: increment(1), updated_at: now };
           if (user.is_account_public) {
             current_user_updates.follow_count = increment(1);
           }
@@ -651,13 +724,28 @@ const firestore = {
           await transaction.update(current_user_ref, _.extend(current_user_updates));
           
           
-          const user_updates = { rev: increment(1), updated_at: Timestamp.now() };
+          const user_updates = { rev: increment(1), updated_at: now };
           if (user.is_account_public) {
             user_updates.follow_by_count = increment(1);
             if (user.current_post_id) {
               const timeline_ref = doc(db, "users/" + $.session.uid + "/timeline", user.current_post_id);
               await transaction.set(timeline_ref, {uid: params.id, post_id: user.current_post_id, created_at: user.current_post_created_at, emoji_char: user.current_post_emoji_char, emoji_group: user.current_post_emoji_group}); 
             }
+
+            _.delay(async function() {
+              const activity = {
+                id: $.session.uid,
+                created_at: now,
+                group: "follow_" + now.toDate().toISOString().split("T")[0],
+                verb: "follow",
+                target: user.id,
+                actor: $.session.uid
+              };
+              const follow_alert_ref = doc(db, "users/" + user.id + "/alerts", activity.group);
+              const alerts_updates = { updated_at: activity.created_at, activities: arrayUnion(activity) };
+              await setDoc(follow_alert_ref, alerts_updates, {merge: true});
+            }, 1);
+    
           }
           else {
             user_updates.request_by_count = increment(1);
@@ -693,6 +781,37 @@ const firestore = {
             user_update.follow_by_count = increment(-1);
             const timeline_ref = doc(db, "users/" + $.session.uid + "/timeline", user.current_post_id);
             await transaction.delete(timeline_ref);
+            
+            _.delay(async function() {
+              const alert_ref = doc(db, "users/" + user.id + "/alerts", "follow_" + relationship.updated_at.toDate().toISOString().split("T")[0]);
+              await runTransaction(db, async (transaction2) => {
+                const alert_doc_snap = await transaction2.get(alert_ref); 
+                if (alert_doc_snap.exists()) {
+                  const alert_group = alert_doc_snap.data();
+                  const activity_id = $.session.uid;
+                  
+                  const activity = _.find(alert_group.activities, function(a) {
+                    return a.id === activity_id;
+                  });
+                  
+                  if (activity) {
+                    const size = _.size(alert_group.activities);
+                    if (size < 2) {
+                      await transaction2.delete(alert_ref);
+                    } else {
+                      const updates = {activities: arrayRemove(activity)};
+                      if (activity === _.last(alert_group.activities)) {
+                        updates.updated_at = alert_group.activities[size-2].created_at;
+                      }
+                      await transaction2.update(alert_ref, updates); 
+                    }
+                  }
+                }
+              });
+            }, 1);
+            
+            
+            
           }
           else if (relationship.status === "request") {
             current_user_update.request_count = increment(-1);

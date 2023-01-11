@@ -178,7 +178,7 @@ const PostScreen = function({navigation, route}) {
     } catch (e) {
       $.logger.error(e);
       fetcher[parent_id].is_loading_more ? fetcher[parent_id].is_load_more_error = true : fetcher[parent_id].is_refresh_error = true;
-      $.display_error(toast, new Error("Failed to load users."));
+      $.display_error(toast, new Error("Something went wrong!"));
     } finally {
       fetcher[parent_id].is_loading_more ? fetcher[parent_id].is_loading_more = false : fetcher[parent_id].is_refreshing = false;
     }

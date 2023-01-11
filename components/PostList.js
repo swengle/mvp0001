@@ -195,7 +195,7 @@ const PostList = function({ id, screen, navigation, emoji, number_columns, emoji
     } catch (e) {
       $.logger.error(e);
       fetcher.default.is_loading_more ? fetcher.default.is_load_more_error = true : fetcher.default.is_refresh_error = true;
-      $.display_error(toast, new Error("Failed to load users."));
+      $.display_error(toast, new Error("Something went wrong!"));
     } finally {
       fetcher.default.is_loading_more ? fetcher.default.is_loading_more = false : fetcher.default.is_refreshing = false; 
     }

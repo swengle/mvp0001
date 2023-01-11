@@ -19,8 +19,8 @@ const FETCH_SIZE = 16;
 const empty_list_by_screen = {
   LikersScreen: "No likers found!",
   RequestByScreen: "No requests found!",
-  FollowingScreen: "Nobody is following!",
-  FollowersScreen: "No followers found!"
+  FollowingScreen: "Not following anyone!",
+  FollowersScreen: "No followers!"
 };
 
 const title_by_screen = {
