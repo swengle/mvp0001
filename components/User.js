@@ -1,5 +1,6 @@
 "use strict";
 import $ from "../setup";
+import _ from "underscore";
 import { useState } from "react";
 import { useToast } from "react-native-toast-notifications";
 import { View } from 'react-native';
@@ -9,28 +10,6 @@ import firestore from "../firestore/firestore";
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import useGlobalCache from "../hooks/useGlobalCache";
 
-const get_relationship_action = function(status) {
-  if (status === "none" || status === "unfollow") {
-      return "follow";
-    } else if (status === "request" || status === "follow" || status === "ignore") {
-      return "unfollow";
-    } else if (status === "block") {
-      return "unblock";
-    }
-};
-
-const get_relationship_button_text = function(status) {
-  if (status === "none" || status === "unfollow") {
-    return "Follow";
-  } else if (status === "follow") {
-    return "Following";
-  } else if (status === "request" || status === "ignore") {
-    return "Requested";
-  } else if (status === "block") {
-    return "Unblock";
-  }
-  return status;
-};
 
 const User = function({id, row_id, navigation, screen, on_request_approve, on_request_delete}) {
   const row = $.contacts_rows_by_id[row_id];
@@ -38,19 +17,18 @@ const User = function({id, row_id, navigation, screen, on_request_approve, on_re
   const { colors } = useTheme();
   const toast = useToast();
   const [busy_button_text, set_busy_button_text] = useState();
-  const { cache_get, cache_get_snapshot  } = useGlobalCache();
-  
-  const user = cache_get(id);
-  
-  if (!user) {
+  const { cache_get_snapshot  } = useGlobalCache();
+
+  const snap_user = cache_get_snapshot(id);
+  if (!snap_user) {
     return null;
   }
   
-  const snap_user = cache_get_snapshot(id);
-  
   const on_press_relationship = async function() {
+    const user = useGlobalCache.cache_get(id);
+    const current_status = user.outgoing_status;
     try {
-      const action = get_relationship_action(user.outgoing_status);
+      const action = $.get_relationship_action_from_status(user.outgoing_status);
       if (action === "follow") {
         set_busy_button_text(user.is_account_public ? "Following" : "Requested");
       } else if (action === "unfollow" || action === "unblock") {
@@ -60,10 +38,19 @@ const User = function({id, row_id, navigation, screen, on_request_approve, on_re
         set_busy_button_text("Unblock");
       }
       
-      await firestore.update_relationship({
+      const result = await firestore.update_relationship({
         id : id,
         action: action
       });
+
+      if (result.outgoing_status === "follow" && current_status !== "follow") {
+        _.isNumber(user.follow_by_count) ? user.follow_by_count++ : user.follow_by_count = 1;
+      } else if (result.outgoing_status !== "follow" && current_status === "follow") {
+        _.isNumber(user.follow_by_count) ? user.follow_by_count-- : user.follow_by_count = 0;
+      }
+      
+      user.outgoing_status = result.outgoing_status;
+      
     } catch (e) {
       $.logger.error(e);
       set_busy_button_text(null);
@@ -78,10 +65,10 @@ const User = function({id, row_id, navigation, screen, on_request_approve, on_re
   const on_press_confirm = async function() {
     try {
       await firestore.update_relationship({
-        id: user.id,
+        id: id,
         action: "approve"
       });
-      on_request_approve(user.id);
+      on_request_approve(id);
     } catch (e) {
       console.error(e);
     }
@@ -90,10 +77,10 @@ const User = function({id, row_id, navigation, screen, on_request_approve, on_re
   const on_press_delete = async function() {
     try {
       await firestore.update_relationship({
-        id: user.id,
+        id: id,
         action: "deny"
       });
-      on_request_delete(user.id);
+      on_request_delete(id);
     } catch (e) {
       console.error(e);
     }
@@ -112,7 +99,7 @@ const User = function({id, row_id, navigation, screen, on_request_approve, on_re
         </TouchableOpacity>
         {(screen !== "RequestByScreen" && id !== $.session.uid) && (
           <View style={{flex: 3}}>
-            <Button mode="contained" compact={true} onPress={on_press_relationship}>{busy_button_text ? busy_button_text : get_relationship_button_text(snap_user.outgoing_status)}</Button>
+            <Button mode="contained" compact={true} onPress={on_press_relationship}>{busy_button_text ? busy_button_text : $.get_relationship_button_text_from_status(snap_user.outgoing_status)}</Button>
           </View>
         )}
       </View>

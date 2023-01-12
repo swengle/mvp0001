@@ -14,30 +14,6 @@ import useGlobalCache from "../hooks/useGlobalCache";
 import MapView from 'react-native-maps';
 import { Marker } from 'react-native-maps';
 
-const get_relationship_action = function(status) {
-  if (status === "none" || status === "unfollow") {
-      return "follow";
-    } else if (status === "request" || status === "follow" || status === "ignore") {
-      return "unfollow";
-    } else if (status === "block") {
-      return "unblock";
-    }
-};
-
-const get_relationship_button_text = function(status) {
-  if (status === "none" || status === "unfollow") {
-    return "Follow";
-  } else if (status === "follow") {
-    return "Following";
-  } else if (status === "request" || status === "ignore") {
-    return "Requested";
-  } else if (status === "block") {
-    return "Unblock";
-  }
-  return status;
-};
-
-
 const EmojiGroupButton = function({group, on_press, selected_group}) {
   const { colors } = useTheme();
   
@@ -81,12 +57,11 @@ const Emoji = function({emoji, on_press, is_not_selected}) {
 };
 
 const ListHeader = function({ id, is_error, on_press_retry, screen, is_refreshing, emoji, explore_screen_state, set_explore_screen_state, navigation, coordinate}) {
-  const { cache_get, cache_get_snapshot  } = useGlobalCache();
+  const { cache_get_snapshot  } = useGlobalCache();
   const snap_session = useSnapshot($.session);
   const [busy_button_text, set_busy_button_text] = useState();
   const toast = useToast();
   
-  const user = screen === "UserScreen" ? cache_get(id) : undefined;
   const snap_user = screen === "UserScreen" ? cache_get_snapshot(id) : undefined;
   
   const update_emojis = function() {
@@ -142,8 +117,10 @@ const ListHeader = function({ id, is_error, on_press_retry, screen, is_refreshin
   };
 
   const on_press_relationship = async function() {
+    const user = useGlobalCache.cache_get(id);
+    const current_status = user.outgoing_status;
     try {
-      const action = get_relationship_action(user.outgoing_status);
+      const action = $.get_relationship_action_from_status(user.outgoing_status);
       if (action === "follow") {
         set_busy_button_text(user.is_account_public ? "Following" : "Requested");
       } else if (action === "unfollow" || action === "unblock") {
@@ -153,10 +130,18 @@ const ListHeader = function({ id, is_error, on_press_retry, screen, is_refreshin
         set_busy_button_text("Unblock");
       }
       
-      await firestore.update_relationship({
+      const result = await firestore.update_relationship({
         id : id,
         action: action
       });
+      
+      if (result.outgoing_status === "follow" && current_status !== "follow") {
+        _.isNumber(user.follow_by_count) ? user.follow_by_count++ : user.follow_by_count = 1;
+      } else if (result.outgoing_status !== "follow" && current_status === "follow") {
+        _.isNumber(user.follow_by_count) ? user.follow_by_count-- : user.follow_by_count = 0;
+      }
+      
+      user.outgoing_status = result.outgoing_status;
     } catch (e) {
       $.logger.error(e);
       set_busy_button_text(null);
@@ -203,7 +188,7 @@ const ListHeader = function({ id, is_error, on_press_retry, screen, is_refreshin
                 <Chip style={{marginRight: 8, alignItems: "center"}} mode="outlined" onPress={on_press_followers}>{snap_user.follow_by_count || 0} {snap_user.follow_by_count === 1 ? "Follower" : "Followers"}</Chip>
                 <Chip style={{alignItems: "center"}} mode="outlined" onPress={on_press_following}>{snap_user.follow_count || 0} Following</Chip>
               </View>
-              {(id !== $.session.uid) && <Button mode="contained" style={{marginTop: 10, marginHorizontal: 10}} onPress={on_press_relationship}>{busy_button_text ? busy_button_text : get_relationship_button_text(snap_user.outgoing_status)}</Button>}
+              {(id !== $.session.uid) && <Button mode="contained" style={{marginTop: 10, marginHorizontal: 10}} onPress={on_press_relationship}>{busy_button_text ? busy_button_text : $.get_relationship_button_text_from_status(snap_user.outgoing_status)}</Button>}
               <View style={{flex: 1}}/>
             </View>
           </View>

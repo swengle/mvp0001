@@ -21,7 +21,15 @@ const SettingsScreen = function({navigation}) {
   };
   
   const on_press_logout = async function() {
+    const uid = $.session.uid;
     delete $.session.uid;
+    if ($.session.device) {
+      try {
+        await firestore.delete_device(uid, $.session.device.token); 
+      } catch (e) {
+        $.logger.error(e);
+      }
+    }
     const auth = getAuth();
     await signOut(auth);
     flush_all();

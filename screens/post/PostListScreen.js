@@ -10,6 +10,7 @@ import { useSnapshot } from "valtio";
 import useGlobalCache from "../../hooks/useGlobalCache";
 import firestore from "../../firestore/firestore";
 import * as Contacts from 'expo-contacts';
+import NotFound from "../../components/NotFound";
 
 const PostListScreen = function({navigation, route}) {
   const snap_session = useSnapshot($.session);
@@ -89,6 +90,10 @@ const PostListScreen = function({navigation, route}) {
     }
     navigation.push("ContactsStack"); 
   };
+  
+  if (screen === "UserScreen" && !snap_user) {
+    return <NotFound/>;
+  }
 
   return (
     <SafeAreaView style ={{flex: 1}} edges={['top', 'left', 'right']}>

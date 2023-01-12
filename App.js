@@ -75,6 +75,10 @@ export default function App() {
       "4" : {
         width: width/4,
         height: (width/4) * (1350/1080)
+      },
+      "8" : {
+        width: width/8,
+        height: (width/8) * (1350/1080)
       }
     },
     emoji_groups: {

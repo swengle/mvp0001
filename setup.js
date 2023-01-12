@@ -113,31 +113,54 @@ $.cf.get_auth_token = httpsCallable(functions, 'get_auth_token');
 $.cf.get_global_counts = httpsCallable(functions, 'get_global_counts');
 
 $.check_notification_permissions = async function() {
+  if ($.session.device) {
+    return;
+  }
   const auth_status = await messaging().requestPermission();
   const is_enabled = auth_status === messaging.AuthorizationStatus.AUTHORIZED || auth_status === messaging.AuthorizationStatus.PROVISIONAL;
   if (is_enabled) {
-    if ($.session.messaging) {
-      return;
-    }
     const token = await messaging().getToken();
-    const doc_ref = doc($.db, "users/" + $.session.uid + "/messaging_configs", token);
+    const doc_ref = doc($.db, "users/" + $.session.uid + "/devices", token);
     const doc_snap = await getDoc(doc_ref);
     if (doc_snap.exists()) {
-      $.session.messaging_config = doc_snap.data();
+      $.session.device = doc_snap.data();
       return;
     }
     else {
-      await firestore.create_messaging_config({
+      $.session.device = await firestore.create_device({
         token: token
       });
     }
   }
   else {
-    delete $.session.messaging_config;
+    delete $.session.device;
   }
   return function() {
 
   };
+};
+
+$.get_relationship_action_from_status = function(status) {
+  if (status === "none" || status === "unfollow") {
+      return "follow";
+    } else if (status === "request" || status === "follow" || status === "ignore") {
+      return "unfollow";
+    } else if (status === "block") {
+      return "unblock";
+    }
+};
+
+$.get_relationship_button_text_from_status = function(status) {
+  if (status === "none" || status === "unfollow") {
+    return "Follow";
+  } else if (status === "follow") {
+    return "Following";
+  } else if (status === "request" || status === "ignore") {
+    return "Requested";
+  } else if (status === "block") {
+    return "Unblock";
+  }
+  return status;
 };
 
 export default $;

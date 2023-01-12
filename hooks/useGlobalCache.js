@@ -7,6 +7,9 @@ let fetchers = {};
 const useGlobalCache = function() {
 
   const cache_set_users = function(users) {
+    if (!users) {
+      return;
+    }
     const users_array = _.isArray(users) ? users : [users];
     const result = [];
     _.each(users_array, function(user) {
@@ -21,6 +24,9 @@ const useGlobalCache = function() {
   };
   
   const cache_set_posts = function(posts) {
+    if (!posts) {
+      return;
+    }
     const posts_array = _.isArray(posts) ? posts : [posts];
     const result = [];
     _.each(posts_array, function(post) {
@@ -35,6 +41,9 @@ const useGlobalCache = function() {
   };
   
   const cache_set_comments= function(comments) {
+    if (!comments) {
+      return;
+    }
     const comments_array = _.isArray(comments) ? comments : [comments];
     const result = [];
     _.each(comments_array, function(comment) {

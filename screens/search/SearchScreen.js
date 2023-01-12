@@ -10,24 +10,25 @@ import useSearch from "../../hooks/useSearch";
 import EmojiSearchResult from "../../components/EmojiSearchResult";
 import { FlashList } from "@shopify/flash-list";
 import { SafeAreaView } from 'react-native-safe-area-context';
+import useGlobalCache from "../../hooks/useGlobalCache";
 
 const SearchResult = function({navigation, row}) {
   const { colors } = useTheme();
-  
-  if (row.item.username) {
-    const user = row.item;
-    
+  if (row.item.id) {
+    const { cache_get_snapshot } = useGlobalCache();
+    const snap_user = cache_get_snapshot(row.item.id);
+
     const on_press_user = function() {
-      navigation.push("PostListScreen", {screen: "UserScreen", id: user.id});
+      navigation.push("PostListScreen", {screen: "UserScreen", id: snap_user.id});
     };
     
     return (
       <View style={{flexDirection: "row", alignItems: "center", padding: 10}}>
         <TouchableOpacity onPress={on_press_user} style={{flex: 7, flexDirection: "row", alignItems: "center"}}>
-          <Avatar.Image size={40} source={{uri: user.profile_image_url}} style={{marginRight: 10}}/>
+          <Avatar.Image size={40} source={{uri: snap_user.profile_image_url}} style={{marginRight: 10}}/>
           <View>
-            <Text variant="titleMedium">{user.username}</Text>
-            {user.name && <Text variant="bodySmall">{user.name}</Text>}
+            <Text variant="titleMedium">{snap_user.username}</Text>
+            {snap_user.name && <Text variant="bodySmall">{snap_user.name}</Text>}
             {row && row.contact_name && <Text variant="labelMedium" style={{color: colors.outline}}><MaterialCommunityIcons name="account-box-outline" size={14} />{row.contact_name}</Text>}
           </View>
         </TouchableOpacity>

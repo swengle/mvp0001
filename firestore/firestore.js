@@ -1,8 +1,7 @@
 "use strict";
 import _ from "underscore";
-import { arrayUnion, arrayRemove, collection, collectionGroup, deleteField, doc, documentId, getDoc, getDocs, increment, query, runTransaction, setDoc, updateDoc, where, Timestamp } from "firebase/firestore";
+import { arrayUnion, arrayRemove, collection, collectionGroup, deleteDoc, deleteField, doc, documentId, getDoc, getDocs, increment, query, runTransaction, setDoc, updateDoc, where, Timestamp } from "firebase/firestore";
 import { getHex } from "pastel-color";
-import useGlobalCache from "../hooks/useGlobalCache";
 
 let $, db;
 
@@ -14,16 +13,16 @@ const firestore = {
     db = $.db;
   },
   fetch_users: async function(ids, is_calling_from_fetch_posts) {
+    const users = [];
     if (_.size(ids) === 0) {
-      return [];
+      return users;
     }
     const id_chunks = _.chunk(ids, max_query_in_size);
-    const users = [];
     await Promise.all(id_chunks.map(async (id_chunk) => {
       const q_user = query(collection(db, "users"), where(documentId(), "in", id_chunk));
       const snap_users = await getDocs(q_user);
       if (_.size(snap_users.docs) === 0) {
-        return [];
+        return users;
       }
       _.each(snap_users.docs, function(user_doc) {
         users.push(user_doc.data());
@@ -317,6 +316,7 @@ const firestore = {
   },
   delete_like: async function(id) {
     const like_ref = doc(db, "users/" + $.session.uid + "/likes", "like-" + id);
+    const now = Timestamp.now();
     await runTransaction(db, async (transaction) => {
       const like_doc_snap = await transaction.get(like_ref);
       if (like_doc_snap.exists()) {
@@ -324,7 +324,7 @@ const firestore = {
         if (like.is_liked) {
           const updates = {
             like_count: increment(-1),
-            updated_at: Timestamp.now(),
+            updated_at: now,
             rev: increment(1)
           };
 
@@ -335,7 +335,7 @@ const firestore = {
             const post_ref = doc(db, "users/" + like.parent_user_id + "/posts", id);
             await transaction.update(post_ref, updates);
           }
-          await transaction.update(like_ref, { updated_at: Timestamp.now(), is_liked: deleteField(), rev: increment(1) });
+          await transaction.update(like_ref, { updated_at: now, is_liked: deleteField(), rev: increment(1) });
           
           _.delay(async function() {
             if (like.parent_user_id === $.session.uid) {
@@ -438,13 +438,14 @@ const firestore = {
   },
   delete_comment: async function(id) {
     const comment_ref = doc(db, "users/" + $.session.uid + "/comments", id);
+    const now = Timestamp.now();
     await runTransaction(db, async (transaction) => {
       const comment_doc_snap = await transaction.get(comment_ref);
       if (comment_doc_snap.exists()) {
         const comment = comment_doc_snap.data();
         const parent_updates = {
           comment_count: increment(-1),
-          updated_at: Timestamp.now(),
+          updated_at: now,
           rev: increment(1)
         };
 
@@ -494,12 +495,30 @@ const firestore = {
       }
     });
   },
-  fetch_comment_dependencies: async function(comments, options) {
+  fetch_comments: async function(ids) {
+    if (_.size(ids) === 0) {
+      return [];
+    }
+    const id_chunks = _.chunk(ids, max_query_in_size);
+    const comments = [];
+    await Promise.all(id_chunks.map(async (id_chunk) => {
+      const q_comment = query(collectionGroup($.db, "comments"), where("id", "in", id_chunk));
+      const snap_comments = await getDocs(q_comment);
+      if (_.size(snap_comments.docs) === 0) {
+        return comments;
+      }
+      _.each(snap_comments.docs, function(comment_doc) {
+        comments.push(comment_doc.data());
+      });
+      await firestore.fetch_comment_dependencies(comments);
+    }));
+    return comments;
+  },
+  fetch_comment_dependencies: async function(comments) {
     if (_.size(comments) === 0) {
       return;
     }
-    
-    options = options || {};
+
     const comment_chunks = _.chunk(comments, max_query_in_size);
     await Promise.all(comment_chunks.map(async (comment_chunk) => {
       const like_ids = [];
@@ -534,26 +553,34 @@ const firestore = {
     }));
   },
   invite_contact: async function(params) {
+    const now = Timestamp.now();
     const invited_doc_ref = doc(db, "users/" + $.session.uid + "/invites/contacts");
     const invited = {};
     _.each(params.phones, function(phone) {
-      invited[phone] = Timestamp.now();
+      invited[phone] = now;
     });
     await setDoc(invited_doc_ref, invited, { merge: true });
   },
-  create_messaging_config: async function(params) {
-    const messaging_config_doc_ref = doc(db, "users/" + $.session.uid + "/messaging_configs", params.token);
-    const update = { uid: $.session.uid, token: params.token, created_at: Timestamp.now(), rev: 0 };
-    await setDoc(messaging_config_doc_ref, update);
-    $.session.messaging_config = update;
+  create_device: async function(params) {
+    const now = Timestamp.now();
+    const device_doc_ref = doc(db, "users/" + $.session.uid + "/devices", params.token);
+    const update = { updated_at: now, rev: increment(1), uid: $.session.uid, token: params.token };
+    await setDoc(device_doc_ref, update, {merge: true});
+    return update;
   },
-  update_messaging_config: async function(params) {
-    const messaging_config_doc_ref = doc(db, "users/" + $.session.uid + "/messaging_configs", params.token);
+  delete_device: async function(uid, id) {
+    const doc_ref = doc($.db, "users/" + uid + "/devices", id);
+    await deleteDoc(doc_ref);
+  },
+  update_device: async function(params) {
+    const now = Timestamp.now();
+    const device_doc_ref = doc(db, "users/" + $.session.uid + "/devices", params.token);
     const update = params.settings;
-    update.updated_at = Timestamp.now();
+    update.rev = increment(1);
+    update.updated_at = now;
     update.uid = $.session.uid;
-    await updateDoc(messaging_config_doc_ref, _.extend({ rev: increment(1) }, update));
-    _.extend($.session.messaging_config, update);
+    await updateDoc(device_doc_ref, update);
+    return update;
   },
   is_username_available: async function(params) {
     const username_ref = doc(db, "usernames", params.username);
@@ -603,12 +630,12 @@ const firestore = {
         }
         username = {
           id: params.username.toLowerCase(),
-          created_at: Timestamp.now(),
+          created_at: now,
           uid: $.session.uid,
           rev: 0
         };
         user_updates.username = params.username;
-        user_updates.change_username_at = Timestamp.now();
+        user_updates.change_username_at = now;
         if (!user.profile_image_url || user.profile_image_url.indexOf("ui-avatars.com") !== -1) {
           user_updates.profile_image_url = "https://ui-avatars.com/api/?name=" + params.username + "&size=110&length=2&rounded=true&color=ffffff&background=" + getHex(params.username).replace("#", "");
         }
@@ -639,280 +666,358 @@ const firestore = {
       return;
     }
     const current_user_ref = doc(db, "users", $.session.uid);
-    const user_ref = doc(db, "users", params.id);
-    const relationship_doc_ref = doc(db, "users/" + $.session.uid + "/relationships", params.id);
+    const other_user_ref = doc(db, "users", params.id);
+    const current_relationship_ref = doc(db, "users/" + $.session.uid + "/relationships", params.id);
     const other_relationship_ref = doc(db, "users/" + params.id + "/relationships", $.session.uid);
 
-    const current_user = $.get_current_user();
-    const user = useGlobalCache.cache_get(params.id);
-
-    if (!current_user || !user) {
+    const current_user_doc = await getDoc(current_user_ref);
+    const other_user_doc = await getDoc(other_user_ref);
+    
+    const current_user = current_user_doc.exists() ? current_user_doc.data() : undefined;
+    const other_user = other_user_doc.exists() ? other_user_doc.data() : undefined;
+    
+    if (!current_user || !other_user) {
       return;
     }
+    
+    const now = Timestamp.now();
 
     const result = { outgoing_status: "none" };
-
-    await runTransaction(db, async (transaction) => {
-      if (params.action === "approve" || params.action === "deny") {
-        const other_relationship_doc_snap = await transaction.get(other_relationship_ref);
-        if (other_relationship_doc_snap.exists()) {
-          const other_relationship = other_relationship_doc_snap.data();
-          if (other_relationship.status === "request") {
-            await transaction.update(other_relationship_ref, {
-              updated_at: Timestamp.now(),
-              status: params.action === "approve" ? "follow" : "none",
-              rev: increment(1)
-            });
-            const current_user_update = { updated_at: Timestamp.now(), rev: increment(1) };
-            current_user_update.request_by_count = increment(-1);
-            
-            const user_update = { updated_at: Timestamp.now(), rev: increment(1) };
-            user_update.request_count = increment(-1);
-            if (params.action === "approve") {
-              current_user_update.follow_by_count = increment(1);
-              user_update.follow_count = increment(1);
-            }
-            await transaction.update(current_user_ref, _.extend({rev: increment(1)}, current_user_update));
-            await transaction.update(user_ref, _.extend({rev: increment(1)}, user_update));
-          }
-        }
-        const relationship_doc_snap = await getDoc(relationship_doc_ref);
-        user.outgoing_status = relationship_doc_snap.exists() ? relationship_doc_snap.data().status : "none";
-        return { outgoing_status: user.outgoing_status };
-      }
-
-      const relationship_doc_snap = await transaction.get(relationship_doc_ref);
-      let relationship;
-      if (relationship_doc_snap.exists()) {
-        relationship = relationship_doc_snap.data();
-        result.outgoing_status = relationship.status;
-      }
-
-      if (relationship && relationship.status === "block" && params.action !== "unblock") {
-        _.extend(user, result);
-        return result;
-      }
-
-      if (params.action === "follow") {
-        if (!relationship || relationship.status === "none") {
-          result.outgoing_status = user.is_account_public ? "follow" : "request";
-          const now = Timestamp.now();
-          if (relationship) {
-            await transaction.update(relationship_doc_ref, {
-              updated_at: now,
-              status: result.outgoing_status,
-              rev: increment(1)
-            });
-          }
-          else {
-            await transaction.set(relationship_doc_ref, {
-              id: current_user.id,
-              uid: user.id,
-              updated_at: now,
-              status: result.outgoing_status,
-              rev: 0
-            });
-          }
-          const current_user_updates = { rev: increment(1), updated_at: now };
-          if (user.is_account_public) {
-            current_user_updates.follow_count = increment(1);
-          }
-          else {
-            current_user_updates.request_count = increment(1);
-          }
-
-          await transaction.update(current_user_ref, _.extend(current_user_updates));
-          
-          
-          const user_updates = { rev: increment(1), updated_at: now };
-          if (user.is_account_public) {
-            user_updates.follow_by_count = increment(1);
-            if (user.current_post_id) {
-              const timeline_ref = doc(db, "users/" + $.session.uid + "/timeline", user.current_post_id);
-              await transaction.set(timeline_ref, {uid: params.id, post_id: user.current_post_id, created_at: user.current_post_created_at, emoji_char: user.current_post_emoji_char, emoji_group: user.current_post_emoji_group}); 
-            }
-
-            _.delay(async function() {
-              const activity = {
-                id: $.session.uid,
-                created_at: now,
-                group: "follow_" + now.toDate().toISOString().split("T")[0],
-                verb: "follow",
-                target: user.id,
-                actor: $.session.uid
-              };
-              const follow_alert_ref = doc(db, "users/" + user.id + "/alerts", activity.group);
-              const alerts_updates = { updated_at: activity.created_at, activities: arrayUnion(activity) };
-              await setDoc(follow_alert_ref, alerts_updates, {merge: true});
-            }, 1);
     
-          }
-          else {
-            user_updates.request_by_count = increment(1);
-            user_updates.unread_request_by_count = increment(1);
-          }
-          await transaction.update(user_ref, _.extend(user_updates));
-        }
+    let current_relationship_updates, current_user_updates, other_relationship_updates, other_user_updates;
+    
+    await runTransaction(db, async (transaction) => {
+      const current_relationship_doc_snap = await transaction.get(current_relationship_ref);
+      const current_relationship = current_relationship_doc_snap.exists() ? current_relationship_doc_snap.data() : undefined;
+      let other_relationship_doc_snap, other_relationship;
+      if (current_relationship) {
+        result.outgoing_status = current_relationship.status;
       }
-      else if (params.action === "unfollow") {
-        if (relationship && (relationship.status === "follow" || relationship.status === "request" || relationship.status === "ignore")) {
-          result.outgoing_status = "none";
-          if (relationship) {
-            await transaction.update(relationship_doc_ref, {
-              updated_at: Timestamp.now(),
-              status: result.outgoing_status,
+      if (params.action === "approve" || params.action === "deny") {
+        other_relationship_doc_snap = await transaction.get(other_relationship_ref);
+        other_relationship = other_relationship_doc_snap.exists() ? other_relationship_doc_snap.data() : undefined;
+        if (other_relationship) {
+          if (other_relationship.status === "request") {
+            other_relationship_updates = {
+              status: params.action === "approve" ? "follow" : "none",
+              updated_at: now,
               rev: increment(1)
-            });
-          }
-          else {
-            await transaction.set(relationship_doc_ref, {
-              id: current_user.id,
-              uid: user.id,
-              updated_at: Timestamp.now(),
-              status: result.outgoing_status,
-              rev: 0
-            });
-          }
-          
-          const current_user_update = { updated_at: Timestamp.now(), rev: increment(1) };
-          const user_update = { updated_at: Timestamp.now(), rev: increment(1) };
-          if (relationship.status === "follow") {
-            current_user_update.follow_count = increment(-1);
-            user_update.follow_by_count = increment(-1);
-            const timeline_ref = doc(db, "users/" + $.session.uid + "/timeline", user.current_post_id);
-            await transaction.delete(timeline_ref);
+            };
             
-            _.delay(async function() {
-              const alert_ref = doc(db, "users/" + user.id + "/alerts", "follow_" + relationship.updated_at.toDate().toISOString().split("T")[0]);
-              await runTransaction(db, async (transaction2) => {
-                const alert_doc_snap = await transaction2.get(alert_ref); 
-                if (alert_doc_snap.exists()) {
-                  const alert_group = alert_doc_snap.data();
-                  const activity_id = $.session.uid;
-                  
-                  const activity = _.find(alert_group.activities, function(a) {
-                    return a.id === activity_id;
-                  });
-                  
-                  if (activity) {
-                    const size = _.size(alert_group.activities);
-                    if (size < 2) {
-                      await transaction2.delete(alert_ref);
-                    } else {
-                      const updates = {activities: arrayRemove(activity)};
-                      if (activity === _.last(alert_group.activities)) {
-                        updates.updated_at = alert_group.activities[size-2].created_at;
-                      }
-                      await transaction2.update(alert_ref, updates); 
-                    }
-                  }
-                }
-              });
-            }, 1);
+            if (other_relationship_updates.status === "follow") {
+              other_relationship_updates.is_via_approval = true;
+            }
             
+            current_user_updates = {
+              request_by_count: increment(-1),
+              updated_at: now, 
+              rev: increment(1)
+            };
             
+            other_user_updates = {
+              request_count: increment(-1),
+              updated_at: now, 
+              rev: increment(1)
+            };
             
+            if (params.action === "approve") {
+              current_user_updates.follow_by_count = increment(1);
+              other_user_updates.follow_count = increment(1);
+            }
           }
-          else if (relationship.status === "request") {
-            current_user_update.request_count = increment(-1);
-            user_update.request_by_count = increment(-1);
-          }
-          else if (relationship.status === "ignore") {
-            current_user_update.ignore_by_count = increment(-1);
-            user_update.ignore_count = increment(-1);
-          }
-          await transaction.update(current_user_ref, _.extend(current_user_update));
-          await transaction.update(user_ref, _.extend(user_update));
         }
-      }
-      else if (params.action === "block") {
-        if (!relationship || (relationship.status !== "block")) {
-          result.outgoing_status = "block";
-          const other_relationship_doc_snap = await transaction.get(other_relationship_ref);
-          
-          if (relationship) {
-            await transaction.update(relationship_doc_ref, {
-              updated_at: Timestamp.now(),
-              status: result.outgoing_status,
-              rev: increment(1)
-            });   
-          } else {
-            await transaction.set(relationship_doc_ref, {
-              id: current_user.id,
-              uid: user.id,
-              updated_at: Timestamp.now(),
-              status: result.outgoing_status,
-              rev: 0
-            });    
-          }
-          
-          if (other_relationship_doc_snap.exists()) {
-            await transaction.update(other_relationship_ref, {
-              updated_at: Timestamp.now(),
-              status: "none",
-              is_blocked: true,
-              rev: increment(1)
-            });
-          } else {
-            await transaction.set(other_relationship_ref, {
-              id: user.id,
-              uid: current_user.id,
-              updated_at: Timestamp.now(),
-              status: "none",
-              is_blocked: true,
-              rev: 0
-            });
-          }
+        result.outgoing_status = current_relationship ? current_relationship.status : "none";
+      } else {
+        if (current_relationship && current_relationship.status === "block" && params.action !== "unblock") {
+          return result; 
+        }
         
-          const current_user_update = { updated_at: Timestamp.now(), rev: increment(1) };
-          current_user_update.block_count = increment(1);
-          if (relationship) {
-            if (relationship.status === "follow") {
-              current_user_update.follow_count = increment(-1);
+        if (params.action === "follow") {
+          if (!current_relationship || current_relationship.status === "none") {
+            result.outgoing_status = other_user.is_account_public ? "follow" : "request";
+            if (current_relationship) {
+              current_relationship_updates = {
+                updated_at: now,
+                rev: increment(1),
+                status: result.outgoing_status
+              };
             }
-            else if (relationship.status === "request") {
-              current_user_update.request_count = increment(-1);
+            else {
+              current_relationship_updates = {
+                updated_at: now,
+                rev: 0,
+                id: current_user.id,
+                uid: other_user.id,
+                status: result.outgoing_status
+              };
+            }
+            
+            current_user_updates = { 
+              updated_at: now, 
+              rev: increment(1) 
+            };
+            if (other_user.is_account_public) {
+              current_user_updates.follow_count = increment(1);
+            }
+            else {
+              current_user_updates.request_count = increment(1);
+            }
+  
+            other_user_updates = { 
+              updated_at: now,
+              rev: increment(1) 
+            };
+            
+            if (other_user.is_account_public) {
+              other_user_updates.follow_by_count = increment(1);
+            }
+            else {
+              other_user_updates.request_by_count = increment(1);
+              other_user_updates.unread_request_by_count = increment(1);
             }
           }
-          await transaction.update(current_user_ref, _.extend(current_user_update));
-          const user_update = { updated_at: Timestamp.now(), rev: increment(1) };
-          if (relationship) {
-            if (relationship.status === "follow") {
-              user_update.follow_by_count = increment(-1);
+        } else if (params.action === "unfollow") {
+          if (current_relationship && (current_relationship.status === "follow" || current_relationship.status === "request" || current_relationship.status === "ignore")) {
+            result.outgoing_status = "none";
+            if (current_relationship) {
+              current_relationship_updates = {
+                updated_at: now,
+                rev: increment(1),
+                status: result.outgoing_status,
+                is_via_approval: deleteField()
+              };
             }
-            else if (relationship.status === "request") {
-              user_update.request_by_count = increment(-1);
+            else {
+              current_relationship_updates = {
+                id: current_user.id,
+                uid: other_user.id,
+                updated_at: now,
+                status: result.outgoing_status,
+                rev: 0
+              };
+            }
+            
+            current_user_updates = { 
+              updated_at: now, 
+              rev: increment(1) 
+            };
+            
+            other_user_updates = { 
+              updated_at: now, 
+              rev: increment(1) 
+            };
+            
+            if (current_relationship.status === "follow") {
+              current_user_updates.follow_count = increment(-1);
+              other_user_updates.follow_by_count = increment(-1);
+            }
+            else if (current_relationship.status === "request") {
+              current_user_updates.request_count = increment(-1);
+              other_user_updates.request_by_count = increment(-1);
+            }
+            else if (current_relationship.status === "ignore") {
+              current_user_updates.ignore_by_count = increment(-1);
+              other_user_updates.ignore_count = increment(-1);
             }
           }
-          user_update.block_by_count = increment(1);
-          await transaction.update(user_ref,  _.extend(user_update));
+        } else if (params.action === "block") {
+          if (!current_relationship || (current_relationship.status !== "block")) {
+            result.outgoing_status = "block";
+            if (current_relationship) {
+              current_relationship_updates = {
+                status: result.outgoing_status,
+                updated_at: now,
+                rev: increment(1),
+                is_via_approval: deleteField()
+              };
+            } else {
+              current_relationship_updates = {
+                id: current_user.id,
+                uid: other_user.id,
+                updated_at: now,
+                status: result.outgoing_status,
+                rev: 0
+              };
+            }
+            
+            other_relationship_doc_snap = await transaction.get(other_relationship_ref);
+            other_relationship = other_relationship_doc_snap.exists() ? other_relationship_doc_snap.data() : undefined;
+            
+            if (other_relationship) {
+              other_relationship_updates = {
+                updated_at: now,
+                rev: increment(1),
+                status: "none",
+                is_blocked: true
+              };
+            } else {
+              other_relationship_updates = {
+                updated_at: now,
+                rev: 0,
+                id: other_user.id,
+                uid: current_user.id,
+                status: "none",
+                is_blocked: true
+              };
+            }
+
+            current_user_updates = { 
+              updated_at: now, 
+              rev: increment(1),
+              block_count: increment(1)
+            };
+            
+            if (current_relationship) {
+              if (current_relationship.status === "follow") {
+                current_user_updates.follow_count = increment(-1);
+              }
+              else if (current_relationship.status === "request") {
+                current_user_updates.request_count = increment(-1);
+              }
+            }
+            
+            other_user_updates = { 
+              updated_at: now, 
+              rev: increment(1),
+              block_by_count: increment(1)
+            };
+            if (current_relationship) {
+              if (current_relationship.status === "follow") {
+                other_user_updates.follow_by_count = increment(-1);
+              }
+              else if (current_relationship.status === "request") {
+                other_user_updates.request_by_count = increment(-1);
+              }
+            }
+          }
+        }
+        else if (params.action === "unblock") {
+          if (current_relationship && (current_relationship.status === "block")) {
+            result.outgoing_status = "none";
+            
+            current_relationship_updates = {
+              updated_at: now,
+              rev: increment(1),
+              status: result.outgoing_status
+            };
+            
+            other_relationship_updates = {
+              updated_at: now,
+              rev: increment(1),
+              status: "none",
+              is_blocked: false
+            };
+
+            current_user_updates = { 
+              updated_at: now, 
+              rev: increment(1),
+              block_count: increment(-1)
+            };
+
+            other_user_updates = { 
+              updated_at: now, 
+              rev: increment(1),
+              block_by_count: increment(-1)
+            };
+          }
         }
       }
-      else if (params.action === "unblock") {
-        if (relationship && (relationship.status === "block")) {
-          const other_relationship_ref = doc(db, "relationships", params.id + $.session.uid);
-          result.outgoing_status = "none";
-          await transaction.update(relationship_doc_ref, {
-            updated_at: Timestamp.now(),
-            status: result.outgoing_status,
-            rev: increment(1)
-          });
-          await transaction.updater(other_relationship_ref, {
-            updated_at: Timestamp.now(),
-            status: "none",
-            is_blocked: false,
-            rev: increment(1)
-          });
-          const current_user_update = { updated_at: Timestamp.now(), rev: increment(1) };
-          current_user_update.block_count = increment(-1);
-          await transaction.update(current_user_ref,  _.extend(current_user_update));
-          const user_update = { updated_at: Timestamp.now(), rev: increment(1) };
-          user_update.block_by_count = increment(-1);
-          await transaction.update(user_ref,  _.extend(user_update));
+      
+      if (_.size(current_user_updates)) {
+        await transaction.update(current_user_ref, current_user_updates);
+      }
+      
+      if (_.size(other_user_updates)) {
+        await transaction.update(other_user_ref, other_user_updates);
+      }
+      
+      if (_.size(current_relationship_updates)) {
+        await transaction.set(current_relationship_ref, current_relationship_updates, {merge: true});
+      }
+      
+      if (_.size(other_relationship_updates)) {
+        await transaction.set(other_relationship_ref, other_relationship_updates, {merge: true});
+      }
+      
+      if (params.action === "follow" && other_user.is_account_public && result.outgoing_status === "follow" && (!current_relationship || current_relationship.status !== "follow")) {
+        if (other_user.current_post_id) {
+          const timeline_ref = doc(db, "users/" + current_user.id + "/timeline", other_user.current_post_id);
+          await transaction.set(timeline_ref, {uid: params.id, post_id: other_user.current_post_id, created_at: other_user.current_post_created_at, emoji_char: other_user.current_post_emoji_char, emoji_group: other_user.current_post_emoji_group}); 
         }
+
+        _.delay(async function() {
+          const activity = {
+            id: current_user.id,
+            created_at: now,
+            group: "follow_" + now.toDate().toISOString().split("T")[0],
+            verb: "follow",
+            target: other_user.id,
+            actor: current_user.id
+          };
+          const follow_alert_ref = doc(db, "users/" + other_user.id + "/alerts", activity.group);
+          const alerts_updates = { updated_at: activity.created_at, activities: arrayUnion(activity) };
+          await setDoc(follow_alert_ref, alerts_updates, {merge: true});
+        }, 1);
+      }
+      
+      
+      if (params.action === "approve" && other_relationship_updates && other_relationship_updates.status === "follow") {
+        _.delay(async function() {
+          const activity = {
+            id: current_user.id,
+            created_at: now,
+            group: "accept_" + now.toDate().toISOString().split("T")[0],
+            verb: "accept",
+            target: other_user.id,
+            actor: current_user.id
+          };
+          const accept_alert_ref = doc(db, "users/" + other_user.id + "/alerts", activity.group);
+          const alerts_updates = { updated_at: activity.created_at, activities: arrayUnion(activity) };
+          await setDoc(accept_alert_ref, alerts_updates, {merge: true});
+        }, 1);
+      }
+      
+      if (result.outgoing_status !== "follow" && (current_relationship && current_relationship.status === "follow")) {
+        if (other_user.current_post_id) {
+          const timeline_ref = doc(db, "users/" + current_user.id + "/timeline", other_user.current_post_id);
+          await transaction.delete(timeline_ref); 
+        }
+        
+        _.delay(async function() {
+          let alert_ref;
+          if (current_relationship.is_via_approval) {
+            alert_ref = doc(db, "users/" + current_user.id + "/alerts", "accept_" + current_relationship.updated_at.toDate().toISOString().split("T")[0]); 
+          } else {
+            alert_ref = doc(db, "users/" + other_user.id + "/alerts", "follow_" + current_relationship.updated_at.toDate().toISOString().split("T")[0]); 
+          }
+          await runTransaction(db, async (transaction2) => {
+            const alert_doc_snap = await transaction2.get(alert_ref); 
+            if (alert_doc_snap.exists()) {
+              const alert_group = alert_doc_snap.data();
+              const activity_id = current_relationship.is_via_approval ? other_user.id : current_user.id;
+              
+              const activity = _.find(alert_group.activities, function(a) {
+                return a.id === activity_id;
+              });
+              
+              if (activity) {
+                const size = _.size(alert_group.activities);
+                if (size < 2) {
+                  await transaction2.delete(alert_ref);
+                } else {
+                  const updates = {activities: arrayRemove(activity)};
+                  if (activity === _.last(alert_group.activities)) {
+                    updates.updated_at = alert_group.activities[size-2].created_at;
+                  }
+                  await transaction2.update(alert_ref, updates); 
+                }
+              }
+            }
+          });
+        }, 1);
       }
     });
-    _.extend(useGlobalCache.cache_get(params.id), result);
+    
     return result;
   }
 };
